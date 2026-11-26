@@ -45,6 +45,11 @@ var reward_taken := false
 var gate: StaticBody3D
 var effects: Array[Node3D] = []
 var fireflies: Array[Node3D] = []
+var doors: Array[Dictionary] = []
+var door_cooldown := 0.0
+var room_id := "1.1"
+var discovered_rooms: Array = ["1.1"]
+var room_map: Label
 var facing := 1.0
 var cooldown := 0.0
 var invulnerable := 0.0
@@ -225,6 +230,57 @@ func decorate_world() -> void:
 		light.light_color = Color("#ffc477")
 		light.light_energy = 0.7
 		light.omni_range = 3.5
+
+func doorway(p: Vector3,target: Vector3,room: String,caption: String,requirement: String = "") -> void:
+	var n := Node3D.new()
+	add_child(n)
+	n.position = p
+	for side in [-1.0,1.0]:
+		detail_box(n,Vector3(side*0.85,0,-0.55),Vector3(0.35,2.5,0.5),Color("#8c795b"))
+	detail_box(n,Vector3(0,1.15,-0.55),Vector3(2.05,0.35,0.5),Color("#ad9567"))
+	var label := Label3D.new()
+	n.add_child(label)
+	label.position = Vector3(0,1.65,0)
+	label.text = caption
+	label.font_size = 36
+	label.pixel_size = 0.007
+	doors.append({"p":p,"target":target,"room":room,"requirement":requirement})
+
+func build_rooms() -> void:
+	# Each room occupies an isolated coordinate range. Doorways connect them.
+	for base in [400.0,650.0,900.0,1150.0]:
+		platform(Vector3(base+60,-0.5,0),Vector3(120,1,5))
+		barrier(Vector3(base-1,10,0),Vector3(1,24,5),Color("#594938"))
+		barrier(Vector3(base+121,10,0),Vector3(1,24,5),Color("#594938"))
+		for i in range(9):
+			var x := base+9+float(i)*12
+			var y := 1.6+float(i%3)*1.6
+			platform(Vector3(x,y,0),Vector3(5,0.4,3))
+			platform(Vector3(x-3,1.2,0),Vector3(2,0.4,3))
+			kernel(Vector3(x,y+0.8,0))
+			var trunk := CylinderMesh.new()
+			trunk.height = 8
+			trunk.bottom_radius = 0.7
+			trunk.top_radius = 0.25
+			mesh(self,trunk,Vector3(x,3,-4),Color("#604a36"))
+			ball(self,Vector3(x,7,-4),Vector3(6,4,3),Color("#a47a45") if base<650 else Color("#657d50") if base<900 else Color("#77618b"))
+	# A hub, a lower branch, an upgrade sanctuary and a return shortcut.
+	doorway(Vector3(284,0.8,0),Vector3(403,1,0),"1.2","E / UP: GRANARY")
+	doorway(Vector3(402,0.8,0),Vector3(282,1,0),"1.1","E / UP: FARM")
+	doorway(Vector3(518,0.8,0),Vector3(653,1,0),"1.3","E / UP: ROOT CELLARS")
+	doorway(Vector3(652,0.8,0),Vector3(516,1,0),"1.2","E / UP: GRANARY")
+	doorway(Vector3(460,0.8,0),Vector3(903,1,0),"1.4","E / UP: WIND SANCTUARY")
+	doorway(Vector3(902,0.8,0),Vector3(458,1,0),"1.2","E / UP: GRANARY")
+	doorway(Vector3(768,0.8,0),Vector3(1153,1,0),"1.5","E / UP: SEALED STOREHOUSE (DASH)","dash")
+	doorway(Vector3(1152,0.8,0),Vector3(766,1,0),"1.3","E / UP: ROOT CELLARS")
+	doorway(Vector3(1268,0.8,0),Vector3(18,1,0),"1.1","E / UP: FARM SHORTCUT")
+	doorway(Vector3(18,0.8,0),Vector3(1266,1,0),"1.5","E / UP: STOREHOUSE (DASH)","dash")
+	barrier(Vector3(289,10,0),Vector3(1,24,5),Color("#594938"))
+	shrine.position = Vector3(1010,0.9,0)
+	for n: Node3D in relics:
+		# Reserve these for later realms; no early acquisition.
+		n.position = Vector3(-1000,0,0)
+		n.hide()
 
 func expansion() -> void:
 	for i in range(12):
@@ -412,6 +468,7 @@ func _ready() -> void:
 	ball(self,Vector3(17,0.3,-0.8),Vector3(1.2,0.35,0.8),Color("#e8cb71"))
 	ball(self,Vector3(47,-3.2,-0.8),Vector3(1.2,0.35,0.8),Color("#e8cb71"))
 	expansion()
+	build_rooms()
 	decorate_world()
 	add_child(preload("res://world_art.gd").new())
 	player = actor(spawn)
@@ -457,6 +514,10 @@ func _ready() -> void:
 	camera.current = true
 	var layer := CanvasLayer.new()
 	add_child(layer)
+	room_map = Label.new()
+	layer.add_child(room_map)
+	room_map.position = Vector2(20,200)
+	room_map.add_theme_font_size_override("font_size",18)
 	hud = Label.new()
 	layer.add_child(hud)
 	hud.position = Vector2(20,20)
@@ -483,7 +544,7 @@ func save_progress() -> void:
 	var file := FileAccess.open("user://turkey_time.save",FileAccess.WRITE)
 	if file==null:
 		return
-	file.store_var({"spawn":spawn,"corn":corn,"max_hp":max_hp,"checkpoint":checkpoint,"cellar":cellar_checkpoint,"boss":boss_done,"secret":secret_open,"reward":reward_taken,"collected":collected,"defeated":defeated,"dash":dash_unlocked,"shortcut":shortcut_open,"woods":woods_checkpoint,"double":double_unlocked,"fork":fork_unlocked,"camps":visited_camps})
+	file.store_var({"spawn":spawn,"corn":corn,"max_hp":max_hp,"checkpoint":checkpoint,"cellar":cellar_checkpoint,"boss":boss_done,"secret":secret_open,"reward":reward_taken,"collected":collected,"defeated":defeated,"dash":dash_unlocked,"shortcut":shortcut_open,"woods":woods_checkpoint,"double":double_unlocked,"fork":fork_unlocked,"camps":visited_camps,"room":room_id,"rooms":discovered_rooms})
 
 func load_progress() -> void:
 	var file := FileAccess.open("user://turkey_time.save",FileAccess.READ)
@@ -498,6 +559,8 @@ func load_progress() -> void:
 	double_unlocked = bool(data.get("double",false))
 	fork_unlocked = bool(data.get("fork",false))
 	visited_camps = data.get("camps",[])
+	room_id = data.get("room","1.1")
+	discovered_rooms = data.get("rooms",["1.1"])
 	for n: Node3D in relics:
 		if (int(n.get_meta("kind"))==0 and double_unlocked) or (int(n.get_meta("kind"))==1 and fork_unlocked):
 			n.hide()
@@ -791,13 +854,34 @@ func _physics_process(dt: float) -> void:
 		hp = max_hp
 		game_menu.call("sound","checkpoint")
 		save_progress()
-	var next_region := "THE OLD FARMYARD" if player.position.x<21 else "THE DERELICT BARN" if player.position.x<39 else "THE FORGOTTEN CELLAR" if player.position.x<58 else "THE IRON ROOSTER" if not boss_done else "HUNTERS' ROAD" if player.position.x<74 else "THE WHISPERING WOODS" if player.position.x<119 else "THE HOLLOW OAK" if player.position.x<161 else "MUSHROOM GROTTO" if player.position.x<203 else "HUNTER’S CAMP" if player.position.x<245 else "ANCIENT RUINS"
+	var next_region := "THE GRANARY" if room_id=="1.2" else "ROOT CELLARS" if room_id=="1.3" else "WIND SANCTUARY" if room_id=="1.4" else "SEALED STOREHOUSE" if room_id=="1.5" else "THE OLD FARMYARD" if player.position.x<21 else "THE DERELICT BARN" if player.position.x<39 else "THE FORGOTTEN CELLAR" if player.position.x<58 else "THE IRON ROOSTER" if not boss_done else "HUNTERS' ROAD" if player.position.x<74 else "THE WHISPERING WOODS" if player.position.x<119 else "THE HOLLOW OAK" if player.position.x<161 else "MUSHROOM GROTTO" if player.position.x<203 else "HUNTER’S CAMP" if player.position.x<245 else "ANCIENT RUINS"
 	if next_region!=region:
 		region = next_region
 		region_timer = 3.5
 	region_timer = maxf(0,region_timer-dt)
 	region_label.text = region if region_timer>0 else ""
-	player.position.x = clampf(player.position.x,-4.5,287.5)
+	door_cooldown = maxf(0,door_cooldown-dt)
+	var enter := pressed(KEY_E) or pressed(KEY_UP)
+	for door: Dictionary in doors:
+		var p: Vector3 = door["p"]
+		if player.position.distance_to(p)<1.8 and enter and door_cooldown<=0:
+			if door["requirement"]=="dash" and not dash_unlocked:
+				region_label.text = "Requires Wings of Freedom"
+				break
+			player.position = door["target"]
+			player.velocity = Vector3.ZERO
+			room_id = door["room"]
+			if not discovered_rooms.has(room_id):
+				discovered_rooms.append(room_id)
+			spawn = player.position
+			camera.position.x = player.position.x
+			camera.position.y = player.position.y+1
+			door_cooldown = 0.8
+			save_progress()
+			break
+	room_map.text = "REALM 1  |  ROOM "+room_id+"  |  Rooms discovered: "+str(discovered_rooms.size())+" / 5"
+	if room_id=="1.1":
+		player.position.x = clampf(player.position.x,-4.5,287.5)
 	for e in enemies:
 		var home: float = e.get_meta("home")
 		var kind: int = e.get_meta("kind")
@@ -875,5 +959,5 @@ func _physics_process(dt: float) -> void:
 	if shake>0:
 		camera.position.x += randf_range(-0.08,0.08)
 		camera.position.y += randf_range(-0.08,0.08)
-	boss_label.text = "IRON ROOSTER  "+str(boss.get_meta("hp"))+"/14" if is_instance_valid(boss) and not boss_done and player.position.x>58 else "IRON ROOSTER DEFEATED — ROAD OPEN" if boss_done and player.position.x>58 and player.position.x<74 else ""
-	hud.text = "RESCUE PRINCESS TINA  |  %s  |  Corn: %d  |  Enemies: %d\nA/D or arrows: move   Space: jump   J: peck   K: punch   L: flap   R: checkpoint   Esc: pause   Shift: dash   F: fork\n%s" % ["♥".repeat(hp)+"♡".repeat(max_hp-hp),corn,enemies.size(),attack_name if attack_timer>0 else "Wings of Freedom: "+("READY" if dash_ready else "RECHARGING") if dash_unlocked else "Explore the upper farm to discover Wings of Freedom"]
+	boss_label.text = "IRON ROOSTER  "+str(boss.get_meta("hp"))+"/14" if is_instance_valid(boss) and not boss_done and player.position.x>58 and player.position.x<74 else "IRON ROOSTER DEFEATED — ROAD OPEN" if boss_done and player.position.x>58 and player.position.x<74 else ""
+	hud.text = "RESCUE PRINCESS TINA  |  %s  |  Corn: %d  |  Enemies: %d\nA/D or arrows: move   Space: jump   J: peck   K: punch   L: flap   R: checkpoint   Esc: pause   E/Up: doorway   Shift: dash   F: fork\n%s" % ["♥".repeat(hp)+"♡".repeat(max_hp-hp),corn,enemies.size(),attack_name if attack_timer>0 else "Wings of Freedom: "+("READY" if dash_ready else "RECHARGING") if dash_unlocked else "Explore the realm to discover Wings of Freedom"]
