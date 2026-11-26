@@ -19,6 +19,9 @@ func mat(tint: Color, glow: bool = false) -> StandardMaterial3D:
 
 func piece(shape: Mesh,p: Vector3,scale_value: Vector3,tint: Color,glow: bool = false) -> MeshInstance3D:
 	var n := MeshInstance3D.new()
+	if shape is SphereMesh:
+		shape.radial_segments = 12
+		shape.rings = 6
 	n.mesh = shape
 	n.material_override = mat(tint,glow)
 	add_child(n)
