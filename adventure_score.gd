@@ -3,7 +3,7 @@ extends RefCounted
 # Original eight-bar adventure theme, rendered as a layered stereo score.
 const RATE := 22050
 const BEAT := 0.64
-const BARS := 8
+const BARS := 80
 const CHORDS := [[50,57,62,65],[46,53,58,62],[53,60,65,69],[48,55,60,64],[50,57,62,65],[46,53,58,62],[43,55,58,62],[45,52,57,61]]
 const MELODY := [[69,72,74,77,76,74],[72,70,69,65,67,69],[69,72,77,81,79,77],[76,74,72,67,69,72],[74,77,81,84,81,77],[77,74,72,70,69,65],[67,70,74,77,74,70],[69,73,76,81,76,73]]
 const STARTS := [0.0,0.75,1.5,2.5,3.0,3.5]
@@ -38,27 +38,38 @@ static func voice(buffer: PackedFloat32Array,note: int,start: float,duration: fl
 			3: # soft low orchestral pulse
 				envelope *= exp(-t*8)
 				wave = sin(TAU*(frequency*t+1.8*(1.0-exp(-t*18))))*0.85+sin(phase*1.49)*0.15
+			4: # broad brass-like harmonic voice
+				wave = sin(phase)*0.48+sin(phase*2)*0.25+sin(phase*3)*0.15+sin(phase*4)*0.08
+				wave *= minf(t*8,1.0)
 		var sample := wave*envelope*volume
 		var index := ((offset+i)%int(frames))*2
 		buffer[index] += sample*left
 		buffer[index+1] += sample*right
 
-static func render() -> AudioStreamWAV:
-	var frames := int(float(BARS)*4*BEAT*RATE)
+static func render(style: int = 0) -> AudioStreamWAV:
+	var bars := BARS if style==0 else 16
+	var beat := BEAT if style==0 else 0.43 if style==1 else 0.36
+	var frames := int(float(bars)*4*beat*RATE)
 	var buffer := PackedFloat32Array()
 	buffer.resize(frames*2)
-	for bar in range(BARS):
-		var start := float(bar)*4*BEAT
-		var chord: Array = CHORDS[bar]
+	for bar in range(bars):
+		var start := float(bar)*4*beat
+		var section := int(bar/8)%5
+		var motif := bar%8
+		var chord: Array = CHORDS[motif]
 		for j in range(4):
-			voice(buffer,int(chord[j]),start,4*BEAT,0.055,float(j-1)*0.28,0)
-		voice(buffer,int(chord[0])-12,start,4*BEAT,0.075,0.0,0)
+			voice(buffer,int(chord[j]),start,4*beat,0.055,float(j-1)*0.28,0)
+		voice(buffer,int(chord[0])-12,start,4*beat,0.075,0.0,0)
 		for j in range(8):
-			voice(buffer,int(chord[j%4])+12,start+float(j)*BEAT*0.5,BEAT*0.65,0.045,-0.55,2)
+			voice(buffer,int(chord[j%4])+12,start+float(j)*beat*0.5,beat*0.65,0.045,-0.55,2)
 		for j in range(6):
-			voice(buffer,int(MELODY[bar][j]),start+float(STARTS[j])*BEAT,float(LENGTHS[j])*BEAT,0.105,0.18,1)
+			voice(buffer,int(MELODY[motif][j])+(12 if section==3 else -12 if section==1 else 0),start+float(STARTS[j])*beat,float(LENGTHS[j])*beat,(0.08 if section==1 else 0.13),0.18,1)
 		voice(buffer,36,start,0.18,0.09,0.0,3)
-		voice(buffer,36,start+2*BEAT,0.18,0.065,0.0,3)
+		voice(buffer,36,start+2*beat,0.18,0.065,0.0,3)
+		if style>0 or section==3:
+			for j in range(4):
+				voice(buffer,int(chord[j])+12,start+float(j)*beat,beat*0.85,0.07,0.4,4)
+				voice(buffer,36,start+float(j)*beat,0.15,0.12 if style==2 else 0.07,0,3)
 	var bytes := PackedByteArray()
 	bytes.resize(frames*4)
 	var delay := int(0.17*RATE)*2
