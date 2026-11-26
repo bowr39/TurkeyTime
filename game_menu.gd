@@ -6,6 +6,10 @@ var title: Label
 var mode := "title"
 var music: AudioStreamPlayer
 var muted := false
+var tracks: Array[AudioStreamPlayer] = []
+var ambience: AudioStreamPlayer
+var combat_hold := 0.0
+var sound_cache: Dictionary = {}
 const SAVE := "user://turkey_time.save"
 
 func tone(notes: Array, seconds: float, volume: float, looped := false) -> AudioStreamWAV:
@@ -40,6 +44,22 @@ func _ready() -> void:
 		get_tree().set_meta("adventure_score",preload("res://adventure_score.gd").render())
 	music.stream = get_tree().get_meta("adventure_score")
 	music.play()
+	tracks.append(music)
+	for style in [1,2]:
+		var key := "score_"+str(style)
+		if not get_tree().has_meta(key):
+			get_tree().set_meta(key,preload("res://adventure_score.gd").render(style))
+		var track := AudioStreamPlayer.new()
+		add_child(track)
+		track.stream = get_tree().get_meta(key)
+		track.volume_db = -80
+		track.play()
+		tracks.append(track)
+	ambience = AudioStreamPlayer.new()
+	add_child(ambience)
+	ambience.stream = atmosphere()
+	ambience.volume_db = -22
+	ambience.play()
 	panel = ColorRect.new()
 	add_child(panel)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -113,7 +133,9 @@ func return_title() -> void:
 
 func toggle_music() -> void:
 	muted = not muted
-	music.volume_db = -80.0 if muted else 0.0
+	for track in tracks:
+		track.volume_db = -80.0 if muted else -12.0
+	ambience.volume_db = -80.0 if muted else -22.0
 
 func quit_game() -> void:
 	if mode=="pause":
@@ -128,6 +150,72 @@ func _input(event: InputEvent) -> void:
 			resume()
 		get_viewport().set_input_as_handled()
 
+func atmosphere() -> AudioStreamWAV:
+	var rate := 22050
+	var frames := rate*12
+	var bytes := PackedByteArray()
+	bytes.resize(frames*2)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 831
+	var wind := 0.0
+	for i in range(frames):
+		var t := float(i)/rate
+		wind = lerpf(wind,rng.randf_range(-1,1),0.035)
+		var gust := 0.45+0.35*sin(TAU*t/6.0)
+		var bird := sin(TAU*(1250*t+40*sin(t*8)))*pow(maxf(0,sin(TAU*t/4.0)),70)*0.035
+		var rustle := rng.randf_range(-1,1)*0.025*pow(maxf(0,sin(t*2)),4)
+		bytes.encode_s16(i*2,int(clampf(wind*gust+bird+rustle,-1,1)*32767))
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = rate
+	stream.data = bytes
+	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	stream.loop_end = frames
+	return stream
+
+func _process(dt: float) -> void:
+	if tracks.size()<3 or not is_instance_valid(game):
+		return
+	var target := 0
+	if mode=="playing":
+		var player: Node3D = game.get("player")
+		if is_instance_valid(player):
+			for enemy in game.get("enemies"):
+				if is_instance_valid(enemy) and enemy.position.distance_to(player.position)<6:
+					target = maxi(target,2 if bool(enemy.get_meta("boss")) else 1)
+			if target>0:
+				combat_hold = 3.0
+			elif combat_hold>0:
+				combat_hold -= dt
+				target = 1
+	for i in range(tracks.size()):
+		tracks[i].volume_db = move_toward(tracks[i].volume_db,-9.0 if i==target and not muted else -80.0,dt*35)
+	ambience.volume_db = move_toward(ambience.volume_db,-22.0 if mode=="playing" and not muted else -80.0,dt*30)
+
+func impact(kind: String) -> AudioStreamWAV:
+	var rate := 22050
+	var frames := int(rate*0.32)
+	var bytes := PackedByteArray()
+	bytes.resize(frames*2)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 513
+	var low := 0.0
+	for i in range(frames):
+		var t := float(i)/rate
+		var noise := rng.randf_range(-1,1)
+		low = lerpf(low,noise,0.12)
+		var hz := 90.0 if kind=="Punch" else 240.0 if kind=="Peck" else 65.0
+		var thump := sin(TAU*(hz*t+2.5*(1-exp(-t*30))))*exp(-t*22)
+		var sample := (thump*0.55+low*exp(-t*15)*0.8+noise*exp(-t*65)*0.12)
+		if kind=="Flap":
+			sample = (noise-low)*sin(PI*t/0.32)*exp(-t*5)*0.25
+		bytes.encode_s16(i*2,int(clampf(sample,-1,1)*23000))
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = rate
+	stream.data = bytes
+	return stream
+
 func sound(kind: String) -> void:
 	var notes: Array = [440,220]
 	match kind:
@@ -139,6 +227,8 @@ func sound(kind: String) -> void:
 		"checkpoint": notes = [330,440,660,880]
 	var p := AudioStreamPlayer.new()
 	add_child(p)
-	p.stream = tone(notes,0.18,0.22)
+	if not sound_cache.has(kind):
+		sound_cache[kind] = impact(kind) if kind in ["Peck","Punch","Flap","hurt"] else tone(notes,0.18,0.22)
+	p.stream = sound_cache[kind]
 	p.finished.connect(p.queue_free)
 	p.play()
