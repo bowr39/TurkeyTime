@@ -76,21 +76,42 @@ func ball(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> MeshInst
 	m.scale = size
 	return m
 
+func detail_box(parent: Node3D,p: Vector3,size: Vector3,tint: Color) -> MeshInstance3D:
+	var m := BoxMesh.new()
+	m.size = size
+	return mesh(parent,m,p,tint)
+
 func platform(pos: Vector3, size: Vector3) -> void:
 	var body := StaticBody3D.new()
 	add_child(body)
 	body.position = pos
-	var box := BoxMesh.new()
-	box.size = size
-	mesh(body, box, Vector3.ZERO, Color("#746044"))
 	var col := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
 	shape.size = size
 	col.shape = shape
 	body.add_child(col)
-	var grass := BoxMesh.new()
-	grass.size = Vector3(size.x, 0.12, size.z)
-	mesh(body, grass, Vector3(0, size.y / 2, 0), Color("#82984c"))
+	var timber := size.y<0.7 and pos.y>0.5 and pos.x<74
+	var base := Color("#70503a") if timber else Color("#655443")
+	var top := Color("#ad8050") if timber else Color("#819b4c")
+	detail_box(body,Vector3.ZERO,size,base)
+	detail_box(body,Vector3(0,size.y/2-0.045,0),Vector3(size.x,0.09,size.z),top)
+	var count := maxi(1,int(ceil(size.x/0.85)))
+	var step := size.x/float(count)
+	for i in range(count):
+		var x := -size.x/2+step*(float(i)+0.5)
+		var shade := base.lightened(0.08+0.06*sin(float(i)*2.4+pos.x))
+		detail_box(body,Vector3(x,0,size.z/2+0.025),Vector3(step-0.035,size.y*0.78,0.08),shade)
+		if timber:
+			for side in [-1.0,1.0]:
+				ball(body,Vector3(x+side*step*0.32,0,size.z/2+0.08),Vector3(0.065,0.065,0.04),Color("#343a3c"))
+		else:
+			var tuft := ball(body,Vector3(x,size.y/2-0.06,size.z/2+0.04),Vector3(step*0.8,0.22,0.16),top.darkened(0.13))
+			tuft.rotation.z = sin(float(i)*2.1)*0.12
+			if i%3==0:
+				ball(body,Vector3(x, -size.y*0.18,size.z/2+0.09),Vector3(step*0.42,size.y*0.30,0.12),Color("#9b8970"))
+	if timber:
+		for side in [-1.0,1.0]:
+			detail_box(body,Vector3(side*(size.x/2-0.12),0,size.z/2+0.09),Vector3(0.15,size.y,0.12),Color("#59402d"))
 
 func actor(pos: Vector3) -> CharacterBody3D:
 	var b := CharacterBody3D.new()
@@ -146,6 +167,10 @@ func lift(p: Vector3, travel: Vector3, phase: float) -> void:
 	var m := BoxMesh.new()
 	m.size = shape.size
 	mesh(b,m,Vector3.ZERO,Color("#b58b52"))
+	for i in range(5):
+		detail_box(b,Vector3(-1.04+float(i)*0.52,0.16,0),Vector3(0.49,0.08,3),Color("#cba16a"))
+	for side in [-1.0,1.0]:
+		detail_box(b,Vector3(side*1.2,0,1.53),Vector3(0.15,0.35,0.1),Color("#68747a"))
 	b.set_meta("origin",p)
 	b.set_meta("travel",travel)
 	b.set_meta("phase",phase)
@@ -182,7 +207,11 @@ func expansion() -> void:
 		var mushroom := Node3D.new()
 		add_child(mushroom)
 		mushroom.position = Vector3(x+3,0.4,0)
+		ball(mushroom,Vector3(0,-0.15,0),Vector3(0.45,0.5,0.45),Color("#e8c8a0"))
 		ball(mushroom,Vector3.ZERO,Vector3(1.4,0.55,1.2),Color("#e75a76"))
+		for spot in range(5):
+			var angle := float(spot)*TAU/5.0
+			ball(mushroom,Vector3(cos(angle)*0.43,0.17,sin(angle)*0.36),Vector3(0.19,0.07,0.17),Color("#fff0c8"))
 		ball(mushroom,Vector3(0,0.25,0),Vector3(0.35,0.12,0.35),Color("#ffe4ae"))
 		mushrooms.append(mushroom)
 		var crate := Node3D.new()
@@ -191,6 +220,11 @@ func expansion() -> void:
 		var box := BoxMesh.new()
 		box.size = Vector3(0.85,0.85,0.85)
 		mesh(crate,box,Vector3.ZERO,Color("#b67e43"))
+		for side in [-1.0,1.0]:
+			detail_box(crate,Vector3(side*0.35,0,0.44),Vector3(0.12,0.85,0.07),Color("#70472c"))
+			detail_box(crate,Vector3(0,side*0.35,0.44),Vector3(0.85,0.12,0.07),Color("#70472c"))
+		var brace := detail_box(crate,Vector3(0,0,0.46),Vector3(0.12,0.91,0.06),Color("#e0aa65"))
+		brace.rotation.z = 0.78
 		crates.append(crate)
 		for j in range(3):
 			var tree_x := x+float(j-1)*4
@@ -329,7 +363,12 @@ func _ready() -> void:
 	chest.position = Vector3(35,6.0,0)
 	var chest_box := BoxMesh.new()
 	chest_box.size = Vector3(0.7,0.5,0.55)
-	mesh(chest,chest_box,Vector3.ZERO,Color("#b88a39"))
+	mesh(chest,chest_box,Vector3.ZERO,Color("#80502c"))
+	for side in [-1.0,1.0]:
+		detail_box(chest,Vector3(side*0.23,0,0.29),Vector3(0.09,0.5,0.05),Color("#e4b75a"))
+	detail_box(chest,Vector3(0,0.24,0),Vector3(0.76,0.12,0.6),Color("#b98640"))
+	detail_box(chest,Vector3(0,0.04,0.31),Vector3(0.17,0.19,0.06),Color("#eac76d"))
+	ball(chest,Vector3(0,0.04,0.35),Vector3(0.045,0.07,0.03),Color("#3b3028"))
 	gate = barrier(Vector3(72,8,0),Vector3(0.4,16,4),Color("#56636b"))
 	for p in [Vector3(3,0.8,0),Vector3(9,2,0),Vector3(13,3.4,0),Vector3(24,2,0),Vector3(28,3.4,0),Vector3(32,4.8,0),Vector3(44,-2.8,0),Vector3(49,-2.8,0),Vector3(56,-1.5,0)]:
 		kernel(p)
