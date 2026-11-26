@@ -117,8 +117,8 @@ func attack(kind: String, reach: float, damage: int, push: float) -> void:
 	cooldown = 0.25 if kind == "Peck" else 0.55
 	attack_name = kind
 	attack_timer = 0.25
-	for e in enemies.duplicate():
-		var delta := e.position - player.position
+	for e: CharacterBody3D in enemies.duplicate():
+		var delta: Vector3 = e.position - player.position
 		if absf(delta.y) < 1.4 and absf(delta.x) <= reach and delta.x*facing >= -0.15:
 			e.set_meta("hp",int(e.get_meta("hp"))-damage)
 			e.velocity.x = facing*push
