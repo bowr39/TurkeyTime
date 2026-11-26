@@ -8,6 +8,12 @@ var enemies: Array[CharacterBody3D] = []
 var game_menu: CanvasLayer
 var collected: Array = []
 var defeated: Array = []
+var dash_unlocked := false
+var dash_time := 0.0
+var dash_ready := true
+var dash_direction := 1.0
+var dash_joy_old := false
+var shrine: Node3D
 var hp := 5
 var max_hp := 5
 var corn := 0
@@ -95,7 +101,7 @@ func kernel(p: Vector3) -> void:
 	mat.emission_enabled = true
 	mat.emission = Color("#a76a15")
 	n.set_meta("base",p.y)
-	n.set_meta("id",str(p.x))
+	n.set_meta("id",str(p.x)+":"+str(p.y))
 	pickups.append(n)
 
 func barrier(p: Vector3,size: Vector3,tint: Color) -> StaticBody3D:
@@ -125,7 +131,37 @@ func _ready() -> void:
 	add_child(sun)
 	sun.rotation_degrees = Vector3(-45, -30, 0)
 	sun.shadow_enabled = true
-	platform(Vector3(4,-0.5,0),Vector3(18,1,5))
+	platform(Vector3(0,-0.5,0),Vector3(10,1,5))
+	platform(Vector3(10,-0.5,0),Vector3(6,1,5))
+	platform(Vector3(7,-4.5,0),Vector3(24,1,5))
+	platform(Vector3(2,-2.3,0),Vector3(2,0.4,3))
+	platform(Vector3(13,-2.4,0),Vector3(2,0.4,3))
+	platform(Vector3(19,-2.0,0),Vector3(3,0.4,3))
+	platform(Vector3(4,2.0,0),Vector3(3,0.4,3))
+	platform(Vector3(8,4.0,0),Vector3(3,0.4,3))
+	platform(Vector3(12,5.8,0),Vector3(4,0.4,3))
+	platform(Vector3(17,5.8,0),Vector3(3,0.4,3))
+	platform(Vector3(31,5.8,0),Vector3(4,0.4,3))
+	platform(Vector3(32,7.7,0),Vector3(3,0.4,3))
+	platform(Vector3(35,9.5,0),Vector3(5,0.4,3))
+	platform(Vector3(36,8.0,0),Vector3(4,0.4,3))
+	platform(Vector3(41,6.0,0),Vector3(4,0.4,3))
+	platform(Vector3(46,4.0,0),Vector3(4,0.4,3))
+	platform(Vector3(51,2.0,0),Vector3(4,0.4,3))
+	shrine = Node3D.new()
+	add_child(shrine)
+	shrine.position = Vector3(12,6.7,0)
+	for side in [-1.0,1.0]:
+		var feather := ball(shrine,Vector3(side*0.3,0,0),Vector3(0.3,0.95,0.2),Color("#a9eaff"))
+		feather.rotation.z = side*-0.6
+	var hint := Label3D.new()
+	shrine.add_child(hint)
+	hint.position.y = 0.8
+	hint.text = "WINGS OF FREEDOM"
+	hint.font_size = 40
+	hint.pixel_size = 0.006
+	for p in [Vector3(6,-3.3,0),Vector3(10,-3.3,0),Vector3(15,-3.3,0),Vector3(17,6.5,0),Vector3(31,6.5,0),Vector3(35,10.2,0),Vector3(36,8.7,0),Vector3(46,4.7,0)]:
+		kernel(p)
 	platform(Vector3(17,-0.5,0),Vector3(6,1,5))
 	platform(Vector3(29.5,-0.5,0),Vector3(19,1,5))
 	platform(Vector3(8,1.3,0),Vector3(3,0.4,3))
@@ -157,8 +193,8 @@ func _ready() -> void:
 	player = actor(spawn)
 	turkey = preload("res://timmy_model.gd").new()
 	player.add_child(turkey)
-	for x in [5.0, 16.0, 25.0, 34.0, 46.0, 51.0, 65.0]:
-		var e := actor(Vector3(x,-2.8 if x>43 and x<54 else 1.0,0))
+	for x in [5.0, 16.0, 25.0, 34.0, 46.0, 51.0, 65.0, 9.0, 14.0, 27.0, 37.0, 45.0]:
+		var e := actor(Vector3(x,-3.2 if x==9.0 or x==14.0 else -2.8 if x>43 and x<54 else 1.0,0))
 		var is_boss: bool = x == 65.0
 		var kind := 2 if is_boss else enemies.size()%3
 		var model = preload("res://enemy_model.gd").new()
@@ -191,7 +227,7 @@ func _ready() -> void:
 	camera = Camera3D.new()
 	add_child(camera)
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	camera.size = 6.5
+	camera.size = 8.5
 	camera.position = Vector3(2,3,15)
 	camera.current = true
 	var layer := CanvasLayer.new()
@@ -222,7 +258,7 @@ func save_progress() -> void:
 	var file := FileAccess.open("user://turkey_time.save",FileAccess.WRITE)
 	if file==null:
 		return
-	file.store_var({"spawn":spawn,"corn":corn,"max_hp":max_hp,"checkpoint":checkpoint,"cellar":cellar_checkpoint,"boss":boss_done,"secret":secret_open,"reward":reward_taken,"collected":collected,"defeated":defeated})
+	file.store_var({"spawn":spawn,"corn":corn,"max_hp":max_hp,"checkpoint":checkpoint,"cellar":cellar_checkpoint,"boss":boss_done,"secret":secret_open,"reward":reward_taken,"collected":collected,"defeated":defeated,"dash":dash_unlocked})
 
 func load_progress() -> void:
 	var file := FileAccess.open("user://turkey_time.save",FileAccess.READ)
@@ -233,6 +269,9 @@ func load_progress() -> void:
 		return
 	spawn = data.get("spawn",Vector3(0,2,0))
 	corn = int(data.get("corn",0))
+	dash_unlocked = bool(data.get("dash",false))
+	if dash_unlocked:
+		shrine.hide()
 	max_hp = int(data.get("max_hp",5))
 	hp = max_hp
 	checkpoint = bool(data.get("checkpoint",false))
@@ -243,7 +282,7 @@ func load_progress() -> void:
 	collected = data.get("collected",[])
 	defeated = data.get("defeated",[])
 	for n: Node3D in pickups.duplicate():
-		if collected.has(n.get_meta("id")):
+		if collected.has(n.get_meta("id")) or collected.has(str(n.position.x)):
 			pickups.erase(n)
 			n.queue_free()
 	for e: CharacterBody3D in enemies.duplicate():
@@ -269,10 +308,10 @@ func pressed(key: int) -> bool:
 func attack(kind: String, reach: float, damage: int, push: float) -> void:
 	if cooldown > 0:
 		return
-	cooldown = 0.25 if kind == "Peck" else 0.55
+	cooldown = 0.15 if kind == "Peck" else 0.30
 	attack_name = kind
 	game_menu.call("sound",kind)
-	attack_timer = 0.25
+	attack_timer = 0.18
 	var tint := Color("#b5eaff") if kind=="Flap" else Color("#ffe3a2")
 	burst(player.position+Vector3(facing*reach*0.55,0.15,0.4),tint,10 if kind=="Flap" else 5)
 	if not secret_open and kind=="Punch" and player.position.distance_to(Vector3(34.8,6.7,0))<1.8:
@@ -342,7 +381,7 @@ func _physics_process(dt: float) -> void:
 		axis = Input.get_joy_axis(0,JOY_AXIS_LEFT_X)
 		if absf(axis)<0.2:
 			axis = 0
-	player.velocity.x = move_toward(player.velocity.x,axis*7.0,55*dt)
+	player.velocity.x = move_toward(player.velocity.x,axis*10.5,85*dt)
 	if axis != 0:
 		facing = signf(axis)
 	turkey.rotation.y = 0 if facing > 0 else PI
@@ -357,11 +396,32 @@ func _physics_process(dt: float) -> void:
 		coyote = maxf(0,coyote-dt)
 		player.velocity.y -= 20*dt
 	if jump_buffer>0 and coyote>0:
-		player.velocity.y = 10
+		player.velocity.y = 11.5
 		coyote = 0
 		jump_buffer = 0
 	if player.velocity.y>3 and not Input.is_physical_key_pressed(KEY_SPACE) and not Input.is_joy_button_pressed(0,JOY_BUTTON_A):
 		player.velocity.y = move_toward(player.velocity.y,3,35*dt)
+	if not dash_unlocked and player.position.distance_to(shrine.position)<1.1:
+		dash_unlocked = true
+		shrine.hide()
+		burst(player.position,Color("#a9eaff"),25)
+		game_menu.call("sound","checkpoint")
+		save_progress()
+		region_label.text = "WINGS OF FREEDOM UNLOCKED"
+	var joy_dash := Input.is_joy_button_pressed(0,JOY_BUTTON_RIGHT_SHOULDER)
+	var dash_pressed := pressed(KEY_SHIFT) or (joy_dash and not dash_joy_old)
+	dash_joy_old = joy_dash
+	if player.is_on_floor() and dash_time<=0:
+		dash_ready = true
+	if dash_unlocked and dash_ready and dash_pressed:
+		dash_ready = false
+		dash_time = 0.22
+		dash_direction = facing
+		invulnerable = maxf(invulnerable,0.25)
+		burst(player.position,Color("#a9eaff"),12)
+	if dash_time>0:
+		dash_time = maxf(0,dash_time-dt)
+		player.velocity = Vector3(dash_direction*28,0,0)
 	player.move_and_slide()
 	player.position.z = 0
 	if pressed(KEY_J) or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_joy_button_pressed(0,JOY_BUTTON_X):
@@ -420,8 +480,8 @@ func _physics_process(dt: float) -> void:
 				state = "warn"
 				timer = 0.28 if kind==0 else 0.42 if kind==1 else 0.65
 				e.set_meta("dir",direction)
-			elif distance<4.0:
-				desired = direction*(3.2 if kind==0 else 2.3 if kind==1 else 1.3)
+			elif distance<6.0:
+				desired = direction*(4.6 if kind==0 else 3.4 if kind==1 else 2.0)
 			else:
 				desired = clampf(home-e.position.x,-1.0,1.0)
 		e.set_meta("state",state)
@@ -463,4 +523,4 @@ func _physics_process(dt: float) -> void:
 		camera.position.x += randf_range(-0.08,0.08)
 		camera.position.y += randf_range(-0.08,0.08)
 	boss_label.text = "IRON ROOSTER  "+str(boss.get_meta("hp"))+"/14" if is_instance_valid(boss) and not boss_done and player.position.x>58 else "IRON ROOSTER DEFEATED — ROAD OPEN" if boss_done and player.position.x>58 else ""
-	hud.text = "RESCUE PRINCESS TINA  |  %s  |  Corn: %d  |  Enemies: %d\nA/D or arrows: move   Space: jump   J: peck   K: punch   L: flap   R: checkpoint   Esc: pause\n%s" % ["♥".repeat(hp)+"♡".repeat(max_hp-hp),corn,enemies.size(),attack_name if attack_timer>0 else ""]
+	hud.text = "RESCUE PRINCESS TINA  |  %s  |  Corn: %d  |  Enemies: %d\nA/D or arrows: move   Space: jump   J: peck   K: punch   L: flap   R: checkpoint   Esc: pause   Shift: dash\n%s" % ["♥".repeat(hp)+"♡".repeat(max_hp-hp),corn,enemies.size(),attack_name if attack_timer>0 else "Wings of Freedom: "+("READY" if dash_ready else "RECHARGING") if dash_unlocked else "Explore the upper farm to discover Wings of Freedom"]
