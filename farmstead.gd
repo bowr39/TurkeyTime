@@ -44,6 +44,45 @@ func lantern(p: Vector3) -> void:
 	light.light_energy = 1.5
 	light.omni_range = 4.0
 
+func beam(a: Vector3,b: Vector3,width: float,tint: Color) -> void:
+	var n := box((a+b)*0.5,Vector3(width,a.distance_to(b),width),tint)
+	n.quaternion = Quaternion(Vector3.UP,(b-a).normalized())
+
+func window_at(x: float,y: float) -> void:
+	var p := Vector3(x,y,-3.05)
+	box(p,Vector3(1.7,2.0,0.15),Color("#382f2d"))
+	box(p+Vector3(0,0,0.09),Vector3(1.35,1.65,0.05),Color("#91a7a1"))
+	for side in [-1.0,1.0]:
+		box(p+Vector3(side*0.77,0,0.17),Vector3(0.16,2.0,0.15),Color("#bc925e"))
+		box(p+Vector3(0,side*0.91,0.17),Vector3(1.7,0.16,0.15),Color("#bc925e"))
+	box(p+Vector3(0,0,0.19),Vector3(0.10,1.7,0.1),Color("#73583c"))
+	box(p+Vector3(0,0,0.19),Vector3(1.4,0.10,0.1),Color("#73583c"))
+
+func polish_barn() -> void:
+	for x in [24.0,30.0,36.0]:
+		window_at(x,3.7)
+	for x in [21.0,27.0,33.0,39.0]:
+		beam(Vector3(x,5.9,-3.1),Vector3(x,8.1,-0.9),0.25,Color("#503b2d"))
+		beam(Vector3(x,8.1,-0.9),Vector3(x,5.9,1.2),0.25,Color("#503b2d"))
+	for i in range(32):
+		var x := 20.5+float(i)*0.61
+		var roof := box(Vector3(x,7.0,-2.1),Vector3(0.59,3.0,0.14),Color("#654a43").lightened(rng.randf_range(0,0.15)))
+		roof.rotation.x = -0.78
+	for i in range(8):
+		var x := 21.5+float(i)*2.4
+		beam(Vector3(x,0.2,-2.95),Vector3(x+1.5,1.9,-2.95),0.13,Color("#946c45"))
+
+func grasses() -> void:
+	for i in range(95):
+		var x := rng.randf_range(-4.5,19.5)
+		if (x>5 and x<7) or (x>13 and x<14):
+			continue
+		var z := rng.randf_range(-2.0,-1.2)
+		for j in range(4):
+			var h := rng.randf_range(0.16,0.46)
+			var leaf := box(Vector3(x+float(j)*0.08,h*0.45,z),Vector3(0.045,h,0.025),Color("#84924c").lightened(rng.randf_range(-0.12,0.2)),rng.randf_range(-0.45,0.45))
+			leaf.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
 func _ready() -> void:
 	rng.seed = 726
 	for i in range(28):
@@ -101,3 +140,6 @@ func _ready() -> void:
 			box(Vector3(x,-2.1+float(j)*0.35,-1.85),Vector3(0.85,0.12,0.12),Color("#a07d45"))
 		lantern(Vector3(x,0.2,-2.1))
 	sign_at(Vector3(51,-1.7,-1.8),"HUNTERS' ROAD  >")
+
+	polish_barn()
+	grasses()
