@@ -235,7 +235,7 @@ func decorate_world() -> void:
 		var hill := ball(self,Vector3(x,1.0,-12),Vector3(12,9+rng.randf_range(0,5),4),Color("#60756c") if i%2==0 else Color("#76877a"))
 		hill.rotation.z = rng.randf_range(-0.25,0.25)
 	for x in [17.0,47.0,78.0,123.0,165.0,207.0,263.0]:
-		var y := -3.4 if x==47.0 else 0.0
+		var y: float = -3.4 if x==47.0 else 0.0
 		detail_box(self,Vector3(x,y+0.5,-0.95),Vector3(0.14,1,0.14),Color("#61442e"))
 		detail_box(self,Vector3(x,y+1.03,-0.95),Vector3(0.38,0.45,0.38),Color("#4b5355"))
 		var glow := ball(self,Vector3(x,y+1.03,-0.72),Vector3(0.25,0.32,0.12),Color("#ffda7b"))
@@ -271,7 +271,7 @@ func build_rooms() -> void:
 		barrier(Vector3(base-1,10,0),Vector3(1,24,5),Color("#594938"))
 		barrier(Vector3(base+121,10,0),Vector3(1,24,5),Color("#594938"))
 		for i in range(9):
-			var x := base+9+float(i)*12
+			var x: float = float(base) + 9.0 + float(i) * 12.0
 			var y := 1.6+float(i%3)*1.6
 			platform(Vector3(x,y,0),Vector3(5,0.4,3))
 			platform(Vector3(x-3,1.2,0),Vector3(2,0.4,3))
