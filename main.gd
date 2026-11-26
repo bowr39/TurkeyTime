@@ -8,6 +8,16 @@ var enemies: Array[CharacterBody3D] = []
 var game_menu: CanvasLayer
 var collected: Array = []
 var defeated: Array = []
+var double_unlocked := false
+var double_ready := true
+var joy_jump_old := false
+var fork_unlocked := false
+var fork_timer := 0.0
+var forks: Array[Node3D] = []
+var crates: Array[Node3D] = []
+var mushrooms: Array[Node3D] = []
+var relics: Array[Node3D] = []
+var visited_camps: Array = []
 var lifts: Array[AnimatableBody3D] = []
 var bridges: Array[StaticBody3D] = []
 var hazards: Array[Node3D] = []
@@ -158,6 +168,59 @@ func spikes(p: Vector3) -> void:
 		mesh(n,cone,Vector3(float(i-2)*0.4,0,0),Color("#7d858a"))
 	hazards.append(n)
 
+func expansion() -> void:
+	for i in range(12):
+		var x := 123.0+float(i)*14.0
+		platform(Vector3(x,-0.5,0),Vector3(10,1,5))
+		platform(Vector3(x+7,-5.5,0),Vector3(14,1,5))
+		platform(Vector3(x-3,2,0),Vector3(3,0.4,3))
+		platform(Vector3(x+1,4,0),Vector3(3,0.4,3))
+		platform(Vector3(x+5,6,0),Vector3(3,0.4,3))
+		platform(Vector3(x+8,-2.5,0),Vector3(2,0.4,3))
+		kernel(Vector3(x+5,6.8,0))
+		kernel(Vector3(x+7,-4.2,0))
+		var mushroom := Node3D.new()
+		add_child(mushroom)
+		mushroom.position = Vector3(x+3,0.4,0)
+		ball(mushroom,Vector3.ZERO,Vector3(1.4,0.55,1.2),Color("#e75a76"))
+		ball(mushroom,Vector3(0,0.25,0),Vector3(0.35,0.12,0.35),Color("#ffe4ae"))
+		mushrooms.append(mushroom)
+		var crate := Node3D.new()
+		add_child(crate)
+		crate.position = Vector3(x-2,0.6,0)
+		var box := BoxMesh.new()
+		box.size = Vector3(0.85,0.85,0.85)
+		mesh(crate,box,Vector3.ZERO,Color("#b67e43"))
+		crates.append(crate)
+		for j in range(3):
+			var tree_x := x+float(j-1)*4
+			var trunk := CylinderMesh.new()
+			trunk.height = 10
+			trunk.bottom_radius = 0.7
+			trunk.top_radius = 0.3
+			mesh(self,trunk,Vector3(tree_x,3,-5),Color("#554032"))
+			ball(self,Vector3(tree_x,8,-5),Vector3(6,5,4),Color("#456b50") if i<4 else Color("#795d91") if i<8 else Color("#a37a48"))
+		if i%3==1:
+			lift(Vector3(x+6,-4,0),Vector3(0,8,0),float(i))
+		if i%3==2:
+			spikes(Vector3(x+7,-4.7,0))
+	for i in range(2):
+		var n := Node3D.new()
+		add_child(n)
+		n.position = Vector3(124 if i==0 else 180,4.8,0)
+		n.set_meta("kind",i)
+		ball(n,Vector3.ZERO,Vector3(0.65,0.85,0.4),Color("#f4c9ff") if i==0 else Color("#c9e8ff"))
+		var label := Label3D.new()
+		n.add_child(label)
+		label.position.y = 0.8
+		label.text = "SILKEN FEATHERS" if i==0 else "THROWING FORK"
+		label.font_size = 40
+		label.pixel_size = 0.006
+		relics.append(n)
+	for x in [123.0,165.0,207.0,263.0]:
+		ball(self,Vector3(x,0.3,-0.8),Vector3(1.2,0.35,0.8),Color("#e8cb71"))
+	platform(Vector3(282,-0.5,0),Vector3(12,1,5))
+
 func _ready() -> void:
 	var env := WorldEnvironment.new()
 	env.environment = Environment.new()
@@ -261,10 +324,11 @@ func _ready() -> void:
 	add_child(preload("res://farmstead.gd").new())
 	ball(self,Vector3(17,0.3,-0.8),Vector3(1.2,0.35,0.8),Color("#e8cb71"))
 	ball(self,Vector3(47,-3.2,-0.8),Vector3(1.2,0.35,0.8),Color("#e8cb71"))
+	expansion()
 	player = actor(spawn)
 	turkey = preload("res://timmy_model.gd").new()
 	player.add_child(turkey)
-	for x in [5.0, 16.0, 25.0, 34.0, 46.0, 51.0, 65.0, 9.0, 14.0, 27.0, 37.0, 45.0, 78.0, 96.0, 113.0]:
+	for x in [5.0, 16.0, 25.0, 34.0, 46.0, 51.0, 65.0, 9.0, 14.0, 27.0, 37.0, 45.0, 78.0, 96.0, 113.0, 121.0, 137.0, 151.0, 163.0, 177.0, 191.0, 205.0, 219.0, 233.0, 247.0, 261.0, 279.0]:
 		var e := actor(Vector3(x,-3.2 if x==9.0 or x==14.0 else -2.8 if x>43 and x<54 else 1.0,0))
 		var is_boss: bool = x == 65.0
 		var kind := 2 if is_boss else enemies.size()%3
@@ -329,7 +393,7 @@ func save_progress() -> void:
 	var file := FileAccess.open("user://turkey_time.save",FileAccess.WRITE)
 	if file==null:
 		return
-	file.store_var({"spawn":spawn,"corn":corn,"max_hp":max_hp,"checkpoint":checkpoint,"cellar":cellar_checkpoint,"boss":boss_done,"secret":secret_open,"reward":reward_taken,"collected":collected,"defeated":defeated,"dash":dash_unlocked,"shortcut":shortcut_open,"woods":woods_checkpoint})
+	file.store_var({"spawn":spawn,"corn":corn,"max_hp":max_hp,"checkpoint":checkpoint,"cellar":cellar_checkpoint,"boss":boss_done,"secret":secret_open,"reward":reward_taken,"collected":collected,"defeated":defeated,"dash":dash_unlocked,"shortcut":shortcut_open,"woods":woods_checkpoint,"double":double_unlocked,"fork":fork_unlocked,"camps":visited_camps})
 
 func load_progress() -> void:
 	var file := FileAccess.open("user://turkey_time.save",FileAccess.READ)
@@ -341,6 +405,12 @@ func load_progress() -> void:
 	spawn = data.get("spawn",Vector3(0,2,0))
 	corn = int(data.get("corn",0))
 	dash_unlocked = bool(data.get("dash",false))
+	double_unlocked = bool(data.get("double",false))
+	fork_unlocked = bool(data.get("fork",false))
+	visited_camps = data.get("camps",[])
+	for n: Node3D in relics:
+		if (int(n.get_meta("kind"))==0 and double_unlocked) or (int(n.get_meta("kind"))==1 and fork_unlocked):
+			n.hide()
 	shortcut_open = bool(data.get("shortcut",false))
 	woods_checkpoint = bool(data.get("woods",false))
 	if shortcut_open and is_instance_valid(shortcut):
@@ -393,6 +463,12 @@ func attack(kind: String, reach: float, damage: int, push: float) -> void:
 		secret_open = true
 		secret_wall.queue_free()
 		burst(Vector3(34.8,6.7,0),Color("#b88b56"),18)
+	for n: Node3D in crates.duplicate():
+		if n.position.distance_to(player.position)<reach+0.5 and kind!="Flap":
+			burst(n.position,Color("#c58c50"),14)
+			corn += 2
+			crates.erase(n)
+			n.queue_free()
 	for e: CharacterBody3D in enemies.duplicate():
 		var delta: Vector3 = e.position - player.position
 		if absf(delta.y) < 1.4 and absf(delta.x) <= reach+(0.4 if bool(e.get_meta("boss")) else 0.0) and delta.x*facing >= -0.15:
@@ -495,8 +571,17 @@ func _physics_process(dt: float) -> void:
 	if axis != 0:
 		facing = signf(axis)
 	turkey.rotation.y = 0 if facing > 0 else PI
-	var jump := pressed(KEY_SPACE)
-	if jump or Input.is_joy_button_pressed(0,JOY_BUTTON_A):
+	var joy_jump := Input.is_joy_button_pressed(0,JOY_BUTTON_A)
+	var jump := pressed(KEY_SPACE) or (joy_jump and not joy_jump_old)
+	joy_jump_old = joy_jump
+	if player.is_on_floor():
+		double_ready = true
+	if jump and double_unlocked and double_ready and not player.is_on_floor() and coyote<=0:
+		double_ready = false
+		player.velocity.y = 11.5
+		burst(player.position,Color("#f4c9ff"),12)
+		jump = false
+	if jump:
 		jump_buffer = 0.13
 	else:
 		jump_buffer = maxf(0,jump_buffer-dt)
@@ -534,6 +619,64 @@ func _physics_process(dt: float) -> void:
 		player.velocity = Vector3(dash_direction*28,0,0)
 	player.move_and_slide()
 	player.position.z = 0
+	for n: Node3D in mushrooms:
+		if player.velocity.y<=0 and absf(player.position.x-n.position.x)<0.7 and absf(player.position.y-n.position.y)<0.8:
+			player.velocity.y = 17
+			burst(n.position,Color("#f4c9ff"),8)
+	for n: Node3D in relics:
+		if n.visible and player.position.distance_to(n.position)<1.2:
+			if int(n.get_meta("kind"))==0:
+				double_unlocked = true
+			else:
+				fork_unlocked = true
+			n.hide()
+			burst(n.position,Color("#f4c9ff"),25)
+			save_progress()
+	for x in [123.0,165.0,207.0,263.0]:
+		if not visited_camps.has(x) and absf(player.position.x-x)<1.2 and absf(player.position.y)<2:
+			visited_camps.append(x)
+			spawn = Vector3(x,1.5,0)
+			hp = max_hp
+			save_progress()
+	fork_timer = maxf(0,fork_timer-dt)
+	if fork_unlocked and fork_timer<=0 and (pressed(KEY_F) or Input.is_joy_button_pressed(0,JOY_BUTTON_LEFT_SHOULDER)):
+		fork_timer = 0.35
+		var n := Node3D.new()
+		add_child(n)
+		n.position = player.position+Vector3(facing*0.6,0.1,0)
+		var handle := BoxMesh.new()
+		handle.size = Vector3(0.65,0.08,0.08)
+		mesh(n,handle,Vector3.ZERO,Color("#dce4ed"))
+		for i in range(3):
+			var tine := BoxMesh.new()
+			tine.size = Vector3(0.25,0.035,0.035)
+			mesh(n,tine,Vector3(facing*0.4,float(i-1)*0.09,0),Color("#dce4ed"))
+		n.set_meta("velocity",facing*22)
+		n.set_meta("life",0.55)
+		forks.append(n)
+	for n: Node3D in forks.duplicate():
+		n.position.x += float(n.get_meta("velocity"))*dt
+		var life: float = float(n.get_meta("life"))-dt
+		for e: CharacterBody3D in enemies.duplicate():
+			if e.position.distance_to(n.position)<0.8:
+				e.set_meta("hp",int(e.get_meta("hp"))-1)
+				e.set_meta("stun",0.2)
+				burst(e.position,Color("#dce4ed"),8)
+				if int(e.get_meta("hp"))<=0:
+					if bool(e.get_meta("boss")):
+						boss_done = true
+						if is_instance_valid(gate):
+							gate.queue_free()
+					defeated.append(e.get_meta("home"))
+					enemies.erase(e)
+					e.queue_free()
+					corn += 2
+				life = 0
+				break
+		n.set_meta("life",life)
+		if life<=0:
+			forks.erase(n)
+			n.queue_free()
 	if pressed(KEY_J) or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_joy_button_pressed(0,JOY_BUTTON_X):
 		attack("Peck",1.3,1,3)
 	if pressed(KEY_K) or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or Input.is_joy_button_pressed(0,JOY_BUTTON_Y):
@@ -554,13 +697,13 @@ func _physics_process(dt: float) -> void:
 		hp = max_hp
 		game_menu.call("sound","checkpoint")
 		save_progress()
-	var next_region := "THE OLD FARMYARD" if player.position.x<21 else "THE DERELICT BARN" if player.position.x<39 else "THE FORGOTTEN CELLAR" if player.position.x<58 else "THE IRON ROOSTER" if not boss_done else "HUNTERS' ROAD" if player.position.x<74 else "THE WHISPERING WOODS"
+	var next_region := "THE OLD FARMYARD" if player.position.x<21 else "THE DERELICT BARN" if player.position.x<39 else "THE FORGOTTEN CELLAR" if player.position.x<58 else "THE IRON ROOSTER" if not boss_done else "HUNTERS' ROAD" if player.position.x<74 else "THE WHISPERING WOODS" if player.position.x<119 else "THE HOLLOW OAK" if player.position.x<161 else "MUSHROOM GROTTO" if player.position.x<203 else "HUNTER’S CAMP" if player.position.x<245 else "ANCIENT RUINS"
 	if next_region!=region:
 		region = next_region
 		region_timer = 3.5
 	region_timer = maxf(0,region_timer-dt)
 	region_label.text = region if region_timer>0 else ""
-	player.position.x = clampf(player.position.x,-4.5,117.5)
+	player.position.x = clampf(player.position.x,-4.5,287.5)
 	for e in enemies:
 		var home: float = e.get_meta("home")
 		var kind: int = e.get_meta("kind")
@@ -633,4 +776,4 @@ func _physics_process(dt: float) -> void:
 		camera.position.x += randf_range(-0.08,0.08)
 		camera.position.y += randf_range(-0.08,0.08)
 	boss_label.text = "IRON ROOSTER  "+str(boss.get_meta("hp"))+"/14" if is_instance_valid(boss) and not boss_done and player.position.x>58 else "IRON ROOSTER DEFEATED — ROAD OPEN" if boss_done and player.position.x>58 and player.position.x<74 else ""
-	hud.text = "RESCUE PRINCESS TINA  |  %s  |  Corn: %d  |  Enemies: %d\nA/D or arrows: move   Space: jump   J: peck   K: punch   L: flap   R: checkpoint   Esc: pause   Shift: dash\n%s" % ["♥".repeat(hp)+"♡".repeat(max_hp-hp),corn,enemies.size(),attack_name if attack_timer>0 else "Wings of Freedom: "+("READY" if dash_ready else "RECHARGING") if dash_unlocked else "Explore the upper farm to discover Wings of Freedom"]
+	hud.text = "RESCUE PRINCESS TINA  |  %s  |  Corn: %d  |  Enemies: %d\nA/D or arrows: move   Space: jump   J: peck   K: punch   L: flap   R: checkpoint   Esc: pause   Shift: dash   F: fork\n%s" % ["♥".repeat(hp)+"♡".repeat(max_hp-hp),corn,enemies.size(),attack_name if attack_timer>0 else "Wings of Freedom: "+("READY" if dash_ready else "RECHARGING") if dash_unlocked else "Explore the upper farm to discover Wings of Freedom"]
