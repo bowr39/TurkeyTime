@@ -228,12 +228,20 @@ func _ready() -> void:
 	env.environment.background_color = Color("#e6b98c")
 	env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.environment.ambient_light_color = Color.WHITE
-	env.environment.ambient_light_energy = 0.7
+	env.environment.ambient_light_energy = 0.55
+	env.environment.ambient_light_color = Color("#d8e5ff")
 	add_child(env)
 	var sun := DirectionalLight3D.new()
 	add_child(sun)
 	sun.rotation_degrees = Vector3(-45, -30, 0)
 	sun.shadow_enabled = true
+	sun.light_color = Color("#ffe0ae")
+	sun.light_energy = 1.3
+	var rim := DirectionalLight3D.new()
+	add_child(rim)
+	rim.rotation_degrees = Vector3(-25,145,0)
+	rim.light_color = Color("#9acbff")
+	rim.light_energy = 0.45
 	platform(Vector3(0,-0.5,0),Vector3(10,1,5))
 	platform(Vector3(10,-0.5,0),Vector3(6,1,5))
 	platform(Vector3(7,-4.5,0),Vector3(24,1,5))
@@ -331,9 +339,10 @@ func _ready() -> void:
 	for x in [5.0, 16.0, 25.0, 34.0, 46.0, 51.0, 65.0, 9.0, 14.0, 27.0, 37.0, 45.0, 78.0, 96.0, 113.0, 121.0, 137.0, 151.0, 163.0, 177.0, 191.0, 205.0, 219.0, 233.0, 247.0, 261.0, 279.0]:
 		var e := actor(Vector3(x,-3.2 if x==9.0 or x==14.0 else -2.8 if x>43 and x<54 else 1.0,0))
 		var is_boss: bool = x == 65.0
-		var kind := 2 if is_boss else enemies.size()%3
+		var kind := 1 if is_boss else enemies.size()%3
 		var model = preload("res://enemy_model.gd").new()
 		model.kind = kind
+		model.champion = is_boss
 		e.add_child(model)
 		e.set_meta("model",model)
 		e.set_meta("kind",kind)
