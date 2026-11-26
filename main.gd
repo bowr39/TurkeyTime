@@ -292,7 +292,10 @@ func _ready() -> void:
 	var env := WorldEnvironment.new()
 	env.environment = Environment.new()
 	env.environment.background_mode = Environment.BG_COLOR
-	env.environment.background_color = Color("#e6b98c")
+	env.environment.background_color = Color("#b7c6b4")
+	env.environment.fog_enabled = true
+	env.environment.fog_light_color = Color("#a7b8ad")
+	env.environment.fog_density = 0.018
 	env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.environment.ambient_light_color = Color.WHITE
 	env.environment.ambient_light_energy = 0.55
@@ -410,6 +413,7 @@ func _ready() -> void:
 	ball(self,Vector3(47,-3.2,-0.8),Vector3(1.2,0.35,0.8),Color("#e8cb71"))
 	expansion()
 	decorate_world()
+	add_child(preload("res://world_art.gd").new())
 	player = actor(spawn)
 	turkey = preload("res://timmy_model.gd").new()
 	player.add_child(turkey)
