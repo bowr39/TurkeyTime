@@ -53,6 +53,13 @@ var room_map: Label
 var surface_materials: Dictionary = {}
 var facing := 1.0
 var cooldown := 0.0
+var combo := 0
+var combo_window := 0.0
+var hit_stop := 0.0
+var dodge_time := 0.0
+var dodge_cooldown := 0.0
+var dodge_direction := 1.0
+var combat_fx: Array[Node3D] = []
 var invulnerable := 0.0
 var attack_name := ""
 var attack_timer := 0.0
@@ -615,10 +622,43 @@ func pressed(key: int) -> bool:
 	previous[key] = now
 	return now and not old
 
+func slash_arc(tint: Color,reach: float) -> void:
+	var n := Node3D.new()
+	add_child(n)
+	n.position = player.position+Vector3(facing*0.35,0,0.65)
+	var shape := TorusMesh.new()
+	shape.inner_radius = reach*0.65
+	shape.outer_radius = reach*0.75
+	shape.rings = 24
+	shape.ring_segments = 8
+	var m := mesh(n,shape,Vector3.ZERO,tint)
+	m.rotation.x = PI/2
+	m.scale = Vector3(1,1,0.55)
+	var mat := m.material_override as StandardMaterial3D
+	mat.emission_enabled = true
+	mat.emission = tint
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	n.set_meta("life",0.14)
+	combat_fx.append(n)
+
 func attack(kind: String, reach: float, damage: int, push: float) -> void:
 	if cooldown > 0:
 		return
-	cooldown = 0.15 if kind == "Peck" else 0.30
+	if kind=="Peck":
+		combo = combo%3+1 if combo_window>0 else 1
+		combo_window = 0.55
+		if combo==3:
+			damage += 2
+			reach += 0.5
+			push += 5
+		cooldown = 0.12 if combo<3 else 0.24
+	else:
+		cooldown = 0.24
+		combo = 0
+		combo_window = 0
+	slash_arc(Color("#ffd28a") if kind!="Flap" else Color("#a7e7ff"),reach)
+	if kind!="Flap":
+		player.velocity.x += facing*3.5
 	attack_name = kind
 	game_menu.call("sound",kind)
 	attack_timer = 0.18
@@ -639,7 +679,8 @@ func attack(kind: String, reach: float, damage: int, push: float) -> void:
 		if absf(delta.y) < 1.4 and absf(delta.x) <= reach+(0.4 if bool(e.get_meta("boss")) else 0.0) and delta.x*facing >= -0.15:
 			e.set_meta("hp",int(e.get_meta("hp"))-damage)
 			burst(e.position+Vector3(0,0,0.5),Color("#ffb15b"),8)
-			shake = 0.12
+			shake = 0.19 if damage>=2 else 0.09
+			hit_stop = 0.045 if damage>=2 else 0.025
 			e.velocity.x = facing*push*(0.25 if bool(e.get_meta("boss")) else 1.0)
 			if not bool(e.get_meta("boss")):
 				e.set_meta("stun",0.22)
@@ -658,6 +699,19 @@ func attack(kind: String, reach: float, damage: int, push: float) -> void:
 					save_progress()
 
 func _physics_process(dt: float) -> void:
+	if hit_stop>0:
+		hit_stop -= dt
+		return
+	combo_window = maxf(0,combo_window-dt)
+	dodge_cooldown = maxf(0,dodge_cooldown-dt)
+	for n: Node3D in combat_fx.duplicate():
+		var life: float = float(n.get_meta("life"))-dt
+		if life<=0:
+			combat_fx.erase(n)
+			n.queue_free()
+		else:
+			n.set_meta("life",life)
+			n.scale += Vector3.ONE*dt*2
 	cooldown = maxf(0,cooldown-dt)
 	invulnerable = maxf(0,invulnerable-dt)
 	attack_timer = maxf(0,attack_timer-dt)
@@ -786,6 +840,15 @@ func _physics_process(dt: float) -> void:
 	if dash_time>0:
 		dash_time = maxf(0,dash_time-dt)
 		player.velocity = Vector3(dash_direction*28,0,0)
+	if (pressed(KEY_C) or Input.is_joy_button_pressed(0,JOY_BUTTON_LEFT_STICK)) and dodge_cooldown<=0 and player.is_on_floor():
+		dodge_time = 0.18
+		dodge_cooldown = 0.7
+		dodge_direction = facing
+		invulnerable = maxf(invulnerable,0.24)
+		burst(player.position,Color("#cbbda5"),9)
+	if dodge_time>0:
+		dodge_time = maxf(0,dodge_time-dt)
+		player.velocity.x = dodge_direction*18
 	player.move_and_slide()
 	player.position.z = 0
 	for n: Node3D in mushrooms:
@@ -909,9 +972,11 @@ func _physics_process(dt: float) -> void:
 		elif state=="warn":
 			if timer<=0:
 				state = "strike"
-				timer = 0.65 if is_boss else 0.25 if kind==0 else 0.38
+				timer = 0.48 if is_boss else 0.25 if kind==0 else 0.38
+				if is_boss and int(e.get_meta("hp"))<=7:
+					e.velocity.y = 7.5
 		elif state=="strike":
-			desired = float(e.get_meta("dir"))*(7.0 if is_boss else 8.0 if kind==0 else 6.5 if kind==1 else 3.8)
+			desired = float(e.get_meta("dir"))*((11.0 if int(e.get_meta("hp"))<=7 else 8.0) if is_boss else 8.0 if kind==0 else 6.5 if kind==1 else 3.8)
 			if timer<=0:
 				state = "recover"
 				timer = 0.65 if kind==0 else 0.9 if kind==1 else 1.2
@@ -972,4 +1037,4 @@ func _physics_process(dt: float) -> void:
 		camera.position.x += randf_range(-0.08,0.08)
 		camera.position.y += randf_range(-0.08,0.08)
 	boss_label.text = "IRON ROOSTER  "+str(boss.get_meta("hp"))+"/14" if is_instance_valid(boss) and not boss_done and player.position.x>58 and player.position.x<74 else "IRON ROOSTER DEFEATED — ROAD OPEN" if boss_done and player.position.x>58 and player.position.x<74 else ""
-	hud.text = "RESCUE PRINCESS TINA  |  %s  |  Corn: %d  |  Enemies: %d\nA/D or arrows: move   Space: jump   J: peck   K: punch   L: flap   R: checkpoint   Esc: pause   E/Up: doorway   Shift: dash   F: fork\n%s" % ["♥".repeat(hp)+"♡".repeat(max_hp-hp),corn,enemies.size(),attack_name if attack_timer>0 else "Wings of Freedom: "+("READY" if dash_ready else "RECHARGING") if dash_unlocked else "Explore the realm to discover Wings of Freedom"]
+	hud.text = "RESCUE PRINCESS TINA  |  %s  |  Corn: %d  |  Enemies: %d\nA/D or arrows: move   Space: jump   J: combo   K: punch   L: flap   C: dodge   R: checkpoint   Esc: pause   E/Up: doorway   Shift: dash   F: fork\n%s" % ["♥".repeat(hp)+"♡".repeat(max_hp-hp),corn,enemies.size(),(attack_name+"  COMBO "+str(combo) if combo>0 else attack_name) if attack_timer>0 else "Wings of Freedom: "+("READY" if dash_ready else "RECHARGING") if dash_unlocked else "Explore the realm to discover Wings of Freedom"]
