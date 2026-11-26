@@ -194,7 +194,7 @@ func _process(dt: float) -> void:
 
 func impact(kind: String) -> AudioStreamWAV:
 	var rate := 22050
-	var frames := int(rate*0.32)
+	var frames := int(rate*(0.085 if kind=="Peck" else 0.32))
 	var bytes := PackedByteArray()
 	bytes.resize(frames*2)
 	var rng := RandomNumberGenerator.new()
@@ -207,6 +207,10 @@ func impact(kind: String) -> AudioStreamWAV:
 		var hz := 90.0 if kind=="Punch" else 240.0 if kind=="Peck" else 65.0
 		var thump := sin(TAU*(hz*t+2.5*(1-exp(-t*30))))*exp(-t*22)
 		var sample := (thump*0.55+low*exp(-t*15)*0.8+noise*exp(-t*65)*0.12)
+		if kind=="Peck":
+			var click := (noise-low)*exp(-t*150)*0.48
+			var tap := sin(TAU*680*t)*exp(-t*100)*0.16
+			sample = (click+tap)*minf(t*1800,1.0)
 		if kind=="Flap":
 			sample = (noise-low)*sin(PI*t/0.32)*exp(-t*5)*0.25
 		bytes.encode_s16(i*2,int(clampf(sample,-1,1)*23000))
@@ -230,5 +234,8 @@ func sound(kind: String) -> void:
 	if not sound_cache.has(kind):
 		sound_cache[kind] = impact(kind) if kind in ["Peck","Punch","Flap","hurt"] else tone(notes,0.18,0.22)
 	p.stream = sound_cache[kind]
+	if kind=="Peck":
+		p.volume_db = -8.0
+		p.pitch_scale = randf_range(0.93,1.08)
 	p.finished.connect(p.queue_free)
 	p.play()
