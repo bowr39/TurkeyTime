@@ -3,7 +3,11 @@ var rng := RandomNumberGenerator.new()
 
 func prop(shape: Mesh,p: Vector3,s: Vector3,c: Color,angle := 0.0) -> MeshInstance3D:
 	var n := MeshInstance3D.new()
+	if shape is SphereMesh:
+		shape.radial_segments = 12
+		shape.rings = 6
 	n.mesh = shape
+	n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
 	m.roughness = 0.95
@@ -73,7 +77,7 @@ func polish_barn() -> void:
 		beam(Vector3(x,0.2,-2.95),Vector3(x+1.5,1.9,-2.95),0.13,Color("#946c45"))
 
 func grasses() -> void:
-	for i in range(95):
+	for i in range(36):
 		var x := rng.randf_range(-4.5,19.5)
 		if (x>5 and x<7) or (x>13 and x<14):
 			continue
