@@ -8,6 +8,12 @@ var enemies: Array[CharacterBody3D] = []
 var game_menu: CanvasLayer
 var collected: Array = []
 var defeated: Array = []
+var lifts: Array[AnimatableBody3D] = []
+var bridges: Array[StaticBody3D] = []
+var hazards: Array[Node3D] = []
+var shortcut: StaticBody3D
+var shortcut_open := false
+var woods_checkpoint := false
 var dash_unlocked := false
 var dash_time := 0.0
 var dash_ready := true
@@ -118,6 +124,40 @@ func barrier(p: Vector3,size: Vector3,tint: Color) -> StaticBody3D:
 	mesh(b,m,Vector3.ZERO,tint)
 	return b
 
+func lift(p: Vector3, travel: Vector3, phase: float) -> void:
+	var b := AnimatableBody3D.new()
+	add_child(b)
+	b.position = p
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(2.6,0.35,3)
+	var col := CollisionShape3D.new()
+	col.shape = shape
+	b.add_child(col)
+	var m := BoxMesh.new()
+	m.size = shape.size
+	mesh(b,m,Vector3.ZERO,Color("#b58b52"))
+	b.set_meta("origin",p)
+	b.set_meta("travel",travel)
+	b.set_meta("phase",phase)
+	lifts.append(b)
+
+func bridge(p: Vector3) -> void:
+	var b := barrier(p,Vector3(1.15,0.22,3),Color("#a17b51"))
+	b.set_meta("timer",-1.0)
+	bridges.append(b)
+
+func spikes(p: Vector3) -> void:
+	var n := Node3D.new()
+	add_child(n)
+	n.position = p
+	for i in range(5):
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0.0
+		cone.bottom_radius = 0.22
+		cone.height = 0.55
+		mesh(n,cone,Vector3(float(i-2)*0.4,0,0),Color("#7d858a"))
+	hazards.append(n)
+
 func _ready() -> void:
 	var env := WorldEnvironment.new()
 	env.environment = Environment.new()
@@ -176,6 +216,37 @@ func _ready() -> void:
 	platform(Vector3(55,-2.6,0),Vector3(2,0.5,4))
 	platform(Vector3(57,-1.2,0),Vector3(2,0.5,4))
 	platform(Vector3(65,-0.5,0),Vector3(16,1,5))
+	platform(Vector3(78,-0.5,0),Vector3(10,1,5))
+	platform(Vector3(96,-0.5,0),Vector3(12,1,5))
+	platform(Vector3(112,-0.5,0),Vector3(12,1,5))
+	platform(Vector3(87,-5.5,0),Vector3(14,1,5))
+	platform(Vector3(104,-5.5,0),Vector3(20,1,5))
+	platform(Vector3(79,2.0,0),Vector3(3,0.4,3))
+	platform(Vector3(84,4.0,0),Vector3(3,0.4,3))
+	platform(Vector3(97,4.0,0),Vector3(4,0.4,3))
+	platform(Vector3(102,6.0,0),Vector3(4,0.4,3))
+	platform(Vector3(109,4.0,0),Vector3(4,0.4,3))
+	platform(Vector3(91,-3.0,0),Vector3(3,0.4,3))
+	lift(Vector3(87,4,0),Vector3(7,0,0),0)
+	lift(Vector3(105,-4,0),Vector3(0,5.5,0),1.0)
+	lift(Vector3(21,1,0),Vector3(0,4,0),0.5)
+	for i in range(5):
+		bridge(Vector3(84+float(i)*1.2,-0.1,0))
+	spikes(Vector3(87,-4.7,0))
+	spikes(Vector3(99,-4.7,0))
+	spikes(Vector3(103,0.3,0))
+	shortcut = barrier(Vector3(110,-3.6,0),Vector3(0.4,3,3),Color("#84613d"))
+	for p in [Vector3(79,2.8,0),Vector3(84,4.8,0),Vector3(97,4.8,0),Vector3(102,6.8,0),Vector3(109,4.8,0),Vector3(92,-2.2,0),Vector3(107,-4.2,0)]:
+		kernel(p)
+	for i in range(20):
+		var x := 74.0+float(i)*2.4
+		var trunk := CylinderMesh.new()
+		trunk.height = 7
+		trunk.top_radius = 0.18
+		trunk.bottom_radius = 0.45
+		mesh(self,trunk,Vector3(x,2,-4),Color("#514438"))
+		for j in range(3):
+			ball(self,Vector3(x+float(j-1)*0.8,5+float(j%2),-4),Vector3(3.8,3.4,3.2),Color("#536e45") if i%2==0 else Color("#7e8745"))
 	platform(Vector3(33,5.5,0),Vector3(4,0.4,3))
 	secret_wall = barrier(Vector3(34.8,6.7,0),Vector3(0.4,2.1,3),Color("#89603d"))
 	chest = Node3D.new()
@@ -193,7 +264,7 @@ func _ready() -> void:
 	player = actor(spawn)
 	turkey = preload("res://timmy_model.gd").new()
 	player.add_child(turkey)
-	for x in [5.0, 16.0, 25.0, 34.0, 46.0, 51.0, 65.0, 9.0, 14.0, 27.0, 37.0, 45.0]:
+	for x in [5.0, 16.0, 25.0, 34.0, 46.0, 51.0, 65.0, 9.0, 14.0, 27.0, 37.0, 45.0, 78.0, 96.0, 113.0]:
 		var e := actor(Vector3(x,-3.2 if x==9.0 or x==14.0 else -2.8 if x>43 and x<54 else 1.0,0))
 		var is_boss: bool = x == 65.0
 		var kind := 2 if is_boss else enemies.size()%3
@@ -258,7 +329,7 @@ func save_progress() -> void:
 	var file := FileAccess.open("user://turkey_time.save",FileAccess.WRITE)
 	if file==null:
 		return
-	file.store_var({"spawn":spawn,"corn":corn,"max_hp":max_hp,"checkpoint":checkpoint,"cellar":cellar_checkpoint,"boss":boss_done,"secret":secret_open,"reward":reward_taken,"collected":collected,"defeated":defeated,"dash":dash_unlocked})
+	file.store_var({"spawn":spawn,"corn":corn,"max_hp":max_hp,"checkpoint":checkpoint,"cellar":cellar_checkpoint,"boss":boss_done,"secret":secret_open,"reward":reward_taken,"collected":collected,"defeated":defeated,"dash":dash_unlocked,"shortcut":shortcut_open,"woods":woods_checkpoint})
 
 func load_progress() -> void:
 	var file := FileAccess.open("user://turkey_time.save",FileAccess.READ)
@@ -270,6 +341,10 @@ func load_progress() -> void:
 	spawn = data.get("spawn",Vector3(0,2,0))
 	corn = int(data.get("corn",0))
 	dash_unlocked = bool(data.get("dash",false))
+	shortcut_open = bool(data.get("shortcut",false))
+	woods_checkpoint = bool(data.get("woods",false))
+	if shortcut_open and is_instance_valid(shortcut):
+		shortcut.queue_free()
 	if dash_unlocked:
 		shrine.hide()
 	max_hp = int(data.get("max_hp",5))
@@ -346,6 +421,41 @@ func _physics_process(dt: float) -> void:
 	invulnerable = maxf(0,invulnerable-dt)
 	attack_timer = maxf(0,attack_timer-dt)
 	clock += dt
+	for b: AnimatableBody3D in lifts:
+		var origin: Vector3 = b.get_meta("origin")
+		var travel: Vector3 = b.get_meta("travel")
+		b.position = origin+travel*(0.5+0.5*sin(clock*0.8+float(b.get_meta("phase"))))
+	for b: StaticBody3D in bridges:
+		var timer: float = b.get_meta("timer")
+		if timer == -1.0 and absf(player.position.x-b.position.x)<0.65 and absf(player.position.y-b.position.y-0.7)<0.3:
+			timer = 0.45
+		if timer>=0:
+			timer -= dt
+			if timer<=0:
+				b.hide()
+				b.collision_layer = 0
+				timer = -2.0
+				get_tree().create_timer(3.0,false).timeout.connect(func():
+					if is_instance_valid(b):
+						b.show()
+						b.collision_layer = 1
+						b.set_meta("timer",-1.0))
+		b.set_meta("timer",timer)
+	for n: Node3D in hazards:
+		if absf(player.position.x-n.position.x)<1.1 and absf(player.position.y-n.position.y)<0.85 and invulnerable<=0:
+			hp -= 1
+			invulnerable = 1.2
+			player.velocity.y = 9
+			game_menu.call("sound","hurt")
+	if boss_done and not woods_checkpoint and absf(player.position.x-78)<1.0 and player.position.y<2:
+		woods_checkpoint = true
+		spawn = Vector3(78,1.5,0)
+		hp = max_hp
+		save_progress()
+	if not shortcut_open and player.position.x>110.6 and player.position.y< -2:
+		shortcut_open = true
+		shortcut.queue_free()
+		save_progress()
 	shake = maxf(0,shake-dt)
 	for n: Node3D in effects.duplicate():
 		var life: float = float(n.get_meta("life"))-dt
@@ -444,13 +554,13 @@ func _physics_process(dt: float) -> void:
 		hp = max_hp
 		game_menu.call("sound","checkpoint")
 		save_progress()
-	var next_region := "THE OLD FARMYARD" if player.position.x<21 else "THE DERELICT BARN" if player.position.x<39 else "THE FORGOTTEN CELLAR" if player.position.x<58 else "THE IRON ROOSTER" if not boss_done else "HUNTERS' ROAD — COMING SOON"
+	var next_region := "THE OLD FARMYARD" if player.position.x<21 else "THE DERELICT BARN" if player.position.x<39 else "THE FORGOTTEN CELLAR" if player.position.x<58 else "THE IRON ROOSTER" if not boss_done else "HUNTERS' ROAD" if player.position.x<74 else "THE WHISPERING WOODS"
 	if next_region!=region:
 		region = next_region
 		region_timer = 3.5
 	region_timer = maxf(0,region_timer-dt)
 	region_label.text = region if region_timer>0 else ""
-	player.position.x = clampf(player.position.x,-4.5,72.5)
+	player.position.x = clampf(player.position.x,-4.5,117.5)
 	for e in enemies:
 		var home: float = e.get_meta("home")
 		var kind: int = e.get_meta("kind")
@@ -507,7 +617,7 @@ func _physics_process(dt: float) -> void:
 			shake = 0.18
 			invulnerable = 1.2
 			player.velocity = Vector3(-facing*6,5,0)
-	if player.position.y < -8 or hp <= 0:
+	if player.position.y < -9 or hp <= 0:
 		player.position = spawn
 		player.velocity = Vector3.ZERO
 		hp = max_hp
@@ -522,5 +632,5 @@ func _physics_process(dt: float) -> void:
 	if shake>0:
 		camera.position.x += randf_range(-0.08,0.08)
 		camera.position.y += randf_range(-0.08,0.08)
-	boss_label.text = "IRON ROOSTER  "+str(boss.get_meta("hp"))+"/14" if is_instance_valid(boss) and not boss_done and player.position.x>58 else "IRON ROOSTER DEFEATED — ROAD OPEN" if boss_done and player.position.x>58 else ""
+	boss_label.text = "IRON ROOSTER  "+str(boss.get_meta("hp"))+"/14" if is_instance_valid(boss) and not boss_done and player.position.x>58 else "IRON ROOSTER DEFEATED — ROAD OPEN" if boss_done and player.position.x>58 and player.position.x<74 else ""
 	hud.text = "RESCUE PRINCESS TINA  |  %s  |  Corn: %d  |  Enemies: %d\nA/D or arrows: move   Space: jump   J: peck   K: punch   L: flap   R: checkpoint   Esc: pause   Shift: dash\n%s" % ["♥".repeat(hp)+"♡".repeat(max_hp-hp),corn,enemies.size(),attack_name if attack_timer>0 else "Wings of Freedom: "+("READY" if dash_ready else "RECHARGING") if dash_unlocked else "Explore the upper farm to discover Wings of Freedom"]
