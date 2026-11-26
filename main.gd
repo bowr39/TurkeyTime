@@ -159,7 +159,7 @@ func _ready() -> void:
 	player.add_child(turkey)
 	for x in [5.0, 16.0, 25.0, 34.0, 46.0, 51.0, 65.0]:
 		var e := actor(Vector3(x,-2.8 if x>43 and x<54 else 1.0,0))
-		var is_boss := x==65.0
+		var is_boss: bool = x == 65.0
 		var kind := 2 if is_boss else enemies.size()%3
 		var model = preload("res://enemy_model.gd").new()
 		model.kind = kind
