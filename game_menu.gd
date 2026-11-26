@@ -36,7 +36,9 @@ func _ready() -> void:
 	layer = 10
 	music = AudioStreamPlayer.new()
 	add_child(music)
-	music.stream = tone([220,329.63,440,392,261.63,329.63,392,329.63,196,293.66,392,440,220,329.63,261.63,0],12.8,0.10,true)
+	if not get_tree().has_meta("adventure_score"):
+		get_tree().set_meta("adventure_score",preload("res://adventure_score.gd").render())
+	music.stream = get_tree().get_meta("adventure_score")
 	music.play()
 	panel = ColorRect.new()
 	add_child(panel)
