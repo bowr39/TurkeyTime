@@ -16,6 +16,10 @@ var spawn := Vector3(0, 2, 0)
 var coyote := 0.0
 var jump_buffer := 0.0
 var checkpoint := false
+var cellar_checkpoint := false
+var region := ""
+var region_timer := 0.0
+var region_label: Label
 var clock := 0.0
 var wings: Array[Node3D] = []
 
@@ -77,31 +81,28 @@ func _ready() -> void:
 	sun.shadow_enabled = true
 	platform(Vector3(4,-0.5,0),Vector3(18,1,5))
 	platform(Vector3(17,-0.5,0),Vector3(6,1,5))
-	platform(Vector3(25,-0.5,0),Vector3(7,1,5))
+	platform(Vector3(29.5,-0.5,0),Vector3(19,1,5))
 	platform(Vector3(8,1.3,0),Vector3(3,0.4,3))
 	platform(Vector3(12,2.7,0),Vector3(3,0.4,3))
-	platform(Vector3(30,1.2,0),Vector3(3,0.4,3))
-	for i in range(19):
-		var x := float(i)*3.2-12.0
-		var trunk := CylinderMesh.new()
-		trunk.height = 3.8
-		mesh(self,trunk,Vector3(x,1.4,-6),Color("#76503b"))
-		ball(self,Vector3(x,3.7,-6),Vector3(3.2,3.4,2.6),Color("#b96932") if i%2==0 else Color("#d99b36"))
-	for i in range(15):
-		ball(self,Vector3(float(i)*2.1-3,0.2,-1.6),Vector3(0.65,0.48,0.65),Color("#e28a25"))
-	var barn := BoxMesh.new()
-	barn.size = Vector3(6,4,2)
-	mesh(self,barn,Vector3(3,2,-8),Color("#9a463b"))
-	var roof := PrismMesh.new()
-	roof.size = Vector3(7,2,3)
-	mesh(self,roof,Vector3(3,5,-8),Color("#583d38"))
+	platform(Vector3(24,1.3,0),Vector3(3,0.4,3))
+	platform(Vector3(28,2.7,0),Vector3(3,0.4,3))
+	platform(Vector3(32,4.1,0),Vector3(3,0.4,3))
+	platform(Vector3(36,2.7,0),Vector3(3,0.4,3))
+	platform(Vector3(40,-1.8,0),Vector3(2,0.5,4))
+	platform(Vector3(42,-3.1,0),Vector3(2,0.5,4))
+	platform(Vector3(49,-4.0,0),Vector3(12,1,5))
+	platform(Vector3(55,-2.6,0),Vector3(2,0.5,4))
+	platform(Vector3(57,-1.2,0),Vector3(2,0.5,4))
+	platform(Vector3(60,-0.5,0),Vector3(4,1,5))
+	add_child(preload("res://farmstead.gd").new())
 	ball(self,Vector3(17,0.3,-0.8),Vector3(1.2,0.35,0.8),Color("#e8cb71"))
+	ball(self,Vector3(47,-3.2,-0.8),Vector3(1.2,0.35,0.8),Color("#e8cb71"))
 	player = actor(spawn)
 	turkey = preload("res://timmy_model.gd").new()
 	player.add_child(turkey)
-	for x in [5.0, 16.0, 25.0]:
-		var e := actor(Vector3(x,1,0))
-		var kind := enemies.size()
+	for x in [5.0, 16.0, 25.0, 34.0, 46.0, 51.0]:
+		var e := actor(Vector3(x,-2.8 if x>43 else 1.0,0))
+		var kind := enemies.size()%3
 		var model = preload("res://enemy_model.gd").new()
 		model.kind = kind
 		e.add_child(model)
@@ -133,6 +134,11 @@ func _ready() -> void:
 	layer.add_child(hud)
 	hud.position = Vector2(20,20)
 	hud.add_theme_font_size_override("font_size",22)
+	region_label = Label.new()
+	layer.add_child(region_label)
+	region_label.position = Vector2(20,115)
+	region_label.add_theme_font_size_override("font_size",30)
+	region_label.modulate = Color("#ffe4b0")
 
 func pressed(key: int) -> bool:
 	var now := Input.is_physical_key_pressed(key)
@@ -202,6 +208,17 @@ func _physics_process(dt: float) -> void:
 		checkpoint = true
 		spawn = Vector3(17,2,0)
 		hp = 5
+	if not cellar_checkpoint and absf(player.position.x-47)<1.2 and player.position.y<0:
+		cellar_checkpoint = true
+		spawn = Vector3(47,-2.5,0)
+		hp = 5
+	var next_region := "THE OLD FARMYARD" if player.position.x<21 else "THE DERELICT BARN" if player.position.x<39 else "THE FORGOTTEN CELLAR" if player.position.x<58 else "HUNTERS' ROAD — COMING SOON"
+	if next_region!=region:
+		region = next_region
+		region_timer = 3.5
+	region_timer = maxf(0,region_timer-dt)
+	region_label.text = region if region_timer>0 else ""
+	player.position.x = clampf(player.position.x,-4.5,61.0)
 	for e in enemies:
 		var home: float = e.get_meta("home")
 		var kind: int = e.get_meta("kind")
@@ -247,7 +264,7 @@ func _physics_process(dt: float) -> void:
 		e.move_and_slide()
 		e.position.z = 0
 		if e.position.y < -8:
-			e.position = Vector3(home,2,0)
+			e.position = Vector3(home,-2.5 if home>43 else 2.0,0)
 			e.velocity = Vector3.ZERO
 		if e.position.distance_to(player.position)<1.0 and invulnerable <= 0 and state=="strike":
 			hp -= 1
@@ -262,5 +279,5 @@ func _physics_process(dt: float) -> void:
 		get_tree().reload_current_scene()
 		return
 	camera.position.x = lerpf(camera.position.x,player.position.x+facing*2,dt*5)
-	camera.position.y = lerpf(camera.position.y,maxf(3,player.position.y+1),dt*5)
+	camera.position.y = lerpf(camera.position.y,player.position.y+1.0,dt*5)
 	hud.text = "RESCUE PRINCESS TINA  |  %s  |  Enemies: %d\nA/D or arrows: move   Space: jump   J: peck   K: punch   L: flap   R: restart\n%s" % ["♥".repeat(hp)+"♡".repeat(5-hp),enemies.size(),attack_name if attack_timer>0 else ""]
