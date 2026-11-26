@@ -44,6 +44,7 @@ var secret_open := false
 var reward_taken := false
 var gate: StaticBody3D
 var effects: Array[Node3D] = []
+var fireflies: Array[Node3D] = []
 var facing := 1.0
 var cooldown := 0.0
 var invulnerable := 0.0
@@ -192,6 +193,38 @@ func spikes(p: Vector3) -> void:
 		cone.height = 0.55
 		mesh(n,cone,Vector3(float(i-2)*0.4,0,0),Color("#7d858a"))
 	hazards.append(n)
+
+func decorate_world() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7319
+	for i in range(72):
+		var x := 74.0+float(i)*2.9
+		var y := rng.randf_range(0.8,6.5)
+		var n := ball(self,Vector3(x,y,-1.8),Vector3.ONE*0.075,Color("#ffe6a1"))
+		var mat := n.material_override as StandardMaterial3D
+		mat.emission_enabled = true
+		mat.emission = Color("#ffd777")
+		mat.emission_energy_multiplier = 1.8
+		n.set_meta("origin",n.position)
+		fireflies.append(n)
+	for i in range(45):
+		var x := 76.0+float(i)*4.7
+		var hill := ball(self,Vector3(x,1.0,-12),Vector3(12,9+rng.randf_range(0,5),4),Color("#60756c") if i%2==0 else Color("#76877a"))
+		hill.rotation.z = rng.randf_range(-0.25,0.25)
+	for x in [17.0,47.0,78.0,123.0,165.0,207.0,263.0]:
+		var y := -3.4 if x==47.0 else 0.0
+		detail_box(self,Vector3(x,y+0.5,-0.95),Vector3(0.14,1,0.14),Color("#61442e"))
+		detail_box(self,Vector3(x,y+1.03,-0.95),Vector3(0.38,0.45,0.38),Color("#4b5355"))
+		var glow := ball(self,Vector3(x,y+1.03,-0.72),Vector3(0.25,0.32,0.12),Color("#ffda7b"))
+		var mat := glow.material_override as StandardMaterial3D
+		mat.emission_enabled = true
+		mat.emission = Color("#ffb94f")
+		var light := OmniLight3D.new()
+		add_child(light)
+		light.position = Vector3(x,y+1.1,0.4)
+		light.light_color = Color("#ffc477")
+		light.light_energy = 0.7
+		light.omni_range = 3.5
 
 func expansion() -> void:
 	for i in range(12):
@@ -376,6 +409,7 @@ func _ready() -> void:
 	ball(self,Vector3(17,0.3,-0.8),Vector3(1.2,0.35,0.8),Color("#e8cb71"))
 	ball(self,Vector3(47,-3.2,-0.8),Vector3(1.2,0.35,0.8),Color("#e8cb71"))
 	expansion()
+	decorate_world()
 	player = actor(spawn)
 	turkey = preload("res://timmy_model.gd").new()
 	player.add_child(turkey)
@@ -549,6 +583,10 @@ func _physics_process(dt: float) -> void:
 	invulnerable = maxf(0,invulnerable-dt)
 	attack_timer = maxf(0,attack_timer-dt)
 	clock += dt
+	for n: Node3D in fireflies:
+		var origin: Vector3 = n.get_meta("origin")
+		n.position = origin+Vector3(sin(clock*0.8+origin.x)*0.45,cos(clock*1.2+origin.x)*0.35,0)
+		n.scale = Vector3.ONE*(0.06+0.025*sin(clock*2+origin.x))
 	for b: AnimatableBody3D in lifts:
 		var origin: Vector3 = b.get_meta("origin")
 		var travel: Vector3 = b.get_meta("travel")
