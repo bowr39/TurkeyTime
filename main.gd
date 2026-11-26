@@ -101,8 +101,24 @@ func _ready() -> void:
 	player.add_child(turkey)
 	for x in [5.0, 16.0, 25.0]:
 		var e := actor(Vector3(x,1,0))
-		ball(e,Vector3.ZERO,Vector3(0.9,0.9,0.9),Color("#a74636"))
-		e.set_meta("hp",3)
+		var kind := enemies.size()
+		var model = preload("res://enemy_model.gd").new()
+		model.kind = kind
+		e.add_child(model)
+		e.set_meta("model",model)
+		e.set_meta("kind",kind)
+		e.set_meta("hp",[2,3,5][kind])
+		e.set_meta("state","patrol")
+		e.set_meta("timer",0.0)
+		e.set_meta("dir",1.0)
+		e.set_meta("stun",0.0)
+		var label := Label3D.new()
+		label.position = Vector3(0,1.0,0)
+		label.font_size = 38
+		label.pixel_size = 0.005
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		e.add_child(label)
+		e.set_meta("label",label)
 		e.set_meta("home",x)
 		enemies.append(e)
 	camera = Camera3D.new()
@@ -135,6 +151,9 @@ func attack(kind: String, reach: float, damage: int, push: float) -> void:
 		if absf(delta.y) < 1.4 and absf(delta.x) <= reach and delta.x*facing >= -0.15:
 			e.set_meta("hp",int(e.get_meta("hp"))-damage)
 			e.velocity.x = facing*push
+			e.set_meta("stun",0.22)
+			e.set_meta("state","recover")
+			e.set_meta("timer",0.35)
 			if int(e.get_meta("hp")) <= 0:
 				enemies.erase(e)
 				e.queue_free()
@@ -185,15 +204,52 @@ func _physics_process(dt: float) -> void:
 		hp = 5
 	for e in enemies:
 		var home: float = e.get_meta("home")
-		var target := player.position.x if absf(player.position.x-home)<3 else home
-		e.velocity.x = move_toward(e.velocity.x,signf(target-e.position.x)*1.7,5*dt)
+		var kind: int = e.get_meta("kind")
+		var state: String = e.get_meta("state")
+		var timer: float = maxf(0,float(e.get_meta("timer"))-dt)
+		var stun: float = maxf(0,float(e.get_meta("stun"))-dt)
+		var distance := absf(player.position.x-e.position.x)
+		var direction := signf(player.position.x-e.position.x)
+		var desired := 0.0
+		if stun>0:
+			desired = e.velocity.x*0.85
+		elif state=="warn":
+			if timer<=0:
+				state = "strike"
+				timer = 0.25 if kind==0 else 0.38
+		elif state=="strike":
+			desired = float(e.get_meta("dir"))*(8.0 if kind==0 else 6.5 if kind==1 else 3.8)
+			if timer<=0:
+				state = "recover"
+				timer = 0.65 if kind==0 else 0.9 if kind==1 else 1.2
+		elif state=="recover":
+			if timer<=0:
+				state = "patrol"
+		else:
+			if distance<2.3 and absf(player.position.y-e.position.y)<1.0:
+				state = "warn"
+				timer = 0.28 if kind==0 else 0.42 if kind==1 else 0.65
+				e.set_meta("dir",direction)
+			elif distance<4.0:
+				desired = direction*(3.2 if kind==0 else 2.3 if kind==1 else 1.3)
+			else:
+				desired = clampf(home-e.position.x,-1.0,1.0)
+		e.set_meta("state",state)
+		e.set_meta("timer",timer)
+		e.set_meta("stun",stun)
+		e.velocity.x = move_toward(e.velocity.x,desired,24*dt)
+		var model: Node3D = e.get_meta("model")
+		model.call("animate",dt,e.velocity.x,state)
+		var label: Label3D = e.get_meta("label")
+		label.text = ("!  " if state=="warn" else "")+"♥".repeat(int(e.get_meta("hp")))
+		label.modulate = Color.ORANGE_RED if state=="warn" else Color.WHITE
 		e.velocity.y -= 20*dt
 		e.move_and_slide()
 		e.position.z = 0
 		if e.position.y < -8:
 			e.position = Vector3(home,2,0)
 			e.velocity = Vector3.ZERO
-		if e.position.distance_to(player.position)<0.95 and invulnerable <= 0:
+		if e.position.distance_to(player.position)<1.0 and invulnerable <= 0 and state=="strike":
 			hp -= 1
 			invulnerable = 1.2
 			player.velocity = Vector3(-facing*6,5,0)
@@ -207,4 +263,4 @@ func _physics_process(dt: float) -> void:
 		return
 	camera.position.x = lerpf(camera.position.x,player.position.x+facing*2,dt*5)
 	camera.position.y = lerpf(camera.position.y,maxf(3,player.position.y+1),dt*5)
-	hud.text = "RESCUE PRINCESS TINA  |  Health: %d/5  |  Enemies: %d\nA/D or arrows: move   Space: jump   J: peck   K: punch   L: flap   R: restart\n%s" % [hp,enemies.size(),attack_name if attack_timer>0 else ""]
+	hud.text = "RESCUE PRINCESS TINA  |  %s  |  Enemies: %d\nA/D or arrows: move   Space: jump   J: peck   K: punch   L: flap   R: restart\n%s" % ["♥".repeat(hp)+"♡".repeat(5-hp),enemies.size(),attack_name if attack_timer>0 else ""]
