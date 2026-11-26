@@ -86,7 +86,11 @@ func mesh(parent: Node3D, shape: Mesh, pos: Vector3, color: Color) -> MeshInstan
 	return m
 
 func ball(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
-	var m := mesh(parent, SphereMesh.new(), pos, color)
+	var sphere := SphereMesh.new()
+	sphere.radial_segments = 12
+	sphere.rings = 6
+	var m := mesh(parent, sphere, pos, color)
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	m.scale = size
 	return m
 
@@ -119,12 +123,12 @@ func platform(pos: Vector3, size: Vector3) -> void:
 	var top := Color("#ad8050") if timber else Color("#819b4c")
 	textured_surface(detail_box(body,Vector3.ZERO,size,base),base,timber)
 	detail_box(body,Vector3(0,size.y/2-0.045,0),Vector3(size.x,0.09,size.z),top)
-	var count := maxi(1,int(ceil(size.x/0.85)))
+	var count := maxi(1,int(ceil(size.x/1.8)))
 	var step := size.x/float(count)
 	for i in range(count):
 		var x := -size.x/2+step*(float(i)+0.5)
 		var shade := base.lightened(0.08+0.06*sin(float(i)*2.4+pos.x))
-		textured_surface(detail_box(body,Vector3(x,0,size.z/2+0.025),Vector3(step-0.035,size.y*0.78,0.08),shade),shade,timber)
+		detail_box(body,Vector3(x,0,size.z/2+0.025),Vector3(step-0.035,size.y*0.78,0.08),shade).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		if timber:
 			for side in [-1.0,1.0]:
 				ball(body,Vector3(x+side*step*0.32,0,size.z/2+0.08),Vector3(0.065,0.065,0.04),Color("#343a3c"))
@@ -379,7 +383,7 @@ func _ready() -> void:
 	var sun := DirectionalLight3D.new()
 	add_child(sun)
 	sun.rotation_degrees = Vector3(-45, -30, 0)
-	sun.shadow_enabled = true
+	sun.shadow_enabled = false
 	sun.light_color = Color("#ffe0ae")
 	sun.light_energy = 1.55
 	var rim := DirectionalLight3D.new()
@@ -699,9 +703,6 @@ func attack(kind: String, reach: float, damage: int, push: float) -> void:
 					save_progress()
 
 func _physics_process(dt: float) -> void:
-	if hit_stop>0:
-		hit_stop -= dt
-		return
 	combo_window = maxf(0,combo_window-dt)
 	dodge_cooldown = maxf(0,dodge_cooldown-dt)
 	for n: Node3D in combat_fx.duplicate():
@@ -717,6 +718,8 @@ func _physics_process(dt: float) -> void:
 	attack_timer = maxf(0,attack_timer-dt)
 	clock += dt
 	for n: Node3D in fireflies:
+		if absf(n.position.x-player.position.x)>25:
+			continue
 		var origin: Vector3 = n.get_meta("origin")
 		n.position = origin+Vector3(sin(clock*0.8+origin.x)*0.45,cos(clock*1.2+origin.x)*0.35,0)
 		n.scale = Vector3.ONE*(0.06+0.025*sin(clock*2+origin.x))
@@ -769,6 +772,8 @@ func _physics_process(dt: float) -> void:
 			n.set_meta("life",life)
 			n.scale = Vector3.ONE*0.12*(life/0.45)
 	for n: Node3D in pickups.duplicate():
+		if absf(n.position.x-player.position.x)>25:
+			continue
 		n.rotation.y += dt*2.5
 		n.position.y = float(n.get_meta("base"))+sin(clock*3+n.position.x)*0.1
 		if n.position.distance_to(player.position)<0.7:
@@ -890,6 +895,8 @@ func _physics_process(dt: float) -> void:
 		n.position.x += float(n.get_meta("velocity"))*dt
 		var life: float = float(n.get_meta("life"))-dt
 		for e: CharacterBody3D in enemies.duplicate():
+			if absf(e.position.x-player.position.x)>32:
+				continue
 			if e.position.distance_to(n.position)<0.8:
 				e.set_meta("hp",int(e.get_meta("hp"))-1)
 				e.set_meta("stun",0.2)
