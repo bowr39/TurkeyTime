@@ -5,6 +5,9 @@ var camera: Camera3D
 var hud: Label
 var turkey: Node3D
 var enemies: Array[CharacterBody3D] = []
+var game_menu: CanvasLayer
+var collected: Array = []
+var defeated: Array = []
 var hp := 5
 var max_hp := 5
 var corn := 0
@@ -92,6 +95,7 @@ func kernel(p: Vector3) -> void:
 	mat.emission_enabled = true
 	mat.emission = Color("#a76a15")
 	n.set_meta("base",p.y)
+	n.set_meta("id",str(p.x))
 	pickups.append(n)
 
 func barrier(p: Vector3,size: Vector3,tint: Color) -> StaticBody3D:
@@ -206,6 +210,55 @@ func _ready() -> void:
 	boss_label.position = Vector2(20,155)
 	boss_label.add_theme_font_size_override("font_size",24)
 	boss_label.modulate = Color("#ffb05b")
+	game_menu = preload("res://game_menu.gd").new()
+	game_menu.set("game",self)
+	add_child(game_menu)
+	if get_tree().has_meta("skip_title"):
+		get_tree().remove_meta("skip_title")
+		game_menu.call("resume")
+		save_progress()
+
+func save_progress() -> void:
+	var file := FileAccess.open("user://turkey_time.save",FileAccess.WRITE)
+	if file==null:
+		return
+	file.store_var({"spawn":spawn,"corn":corn,"max_hp":max_hp,"checkpoint":checkpoint,"cellar":cellar_checkpoint,"boss":boss_done,"secret":secret_open,"reward":reward_taken,"collected":collected,"defeated":defeated})
+
+func load_progress() -> void:
+	var file := FileAccess.open("user://turkey_time.save",FileAccess.READ)
+	if file==null:
+		return
+	var data = file.get_var()
+	if not data is Dictionary:
+		return
+	spawn = data.get("spawn",Vector3(0,2,0))
+	corn = int(data.get("corn",0))
+	max_hp = int(data.get("max_hp",5))
+	hp = max_hp
+	checkpoint = bool(data.get("checkpoint",false))
+	cellar_checkpoint = bool(data.get("cellar",false))
+	boss_done = bool(data.get("boss",false))
+	secret_open = bool(data.get("secret",false))
+	reward_taken = bool(data.get("reward",false))
+	collected = data.get("collected",[])
+	defeated = data.get("defeated",[])
+	for n: Node3D in pickups.duplicate():
+		if collected.has(n.get_meta("id")):
+			pickups.erase(n)
+			n.queue_free()
+	for e: CharacterBody3D in enemies.duplicate():
+		if defeated.has(e.get_meta("home")):
+			enemies.erase(e)
+			e.queue_free()
+	if boss_done and is_instance_valid(gate):
+		gate.queue_free()
+	if secret_open and is_instance_valid(secret_wall):
+		secret_wall.queue_free()
+	if reward_taken and is_instance_valid(chest):
+		chest.queue_free()
+	player.position = spawn
+	player.velocity = Vector3.ZERO
+
 
 func pressed(key: int) -> bool:
 	var now := Input.is_physical_key_pressed(key)
@@ -218,6 +271,7 @@ func attack(kind: String, reach: float, damage: int, push: float) -> void:
 		return
 	cooldown = 0.25 if kind == "Peck" else 0.55
 	attack_name = kind
+	game_menu.call("sound",kind)
 	attack_timer = 0.25
 	var tint := Color("#b5eaff") if kind=="Flap" else Color("#ffe3a2")
 	burst(player.position+Vector3(facing*reach*0.55,0.15,0.4),tint,10 if kind=="Flap" else 5)
@@ -242,8 +296,11 @@ func attack(kind: String, reach: float, damage: int, push: float) -> void:
 					gate.queue_free()
 					burst(e.position,Color("#ffcc55"),30)
 				corn += 5 if bool(e.get_meta("boss")) else 2
+				defeated.append(e.get_meta("home"))
 				enemies.erase(e)
 				e.queue_free()
+				if boss_done:
+					save_progress()
 
 func _physics_process(dt: float) -> void:
 	cooldown = maxf(0,cooldown-dt)
@@ -268,6 +325,8 @@ func _physics_process(dt: float) -> void:
 		n.position.y = float(n.get_meta("base"))+sin(clock*3+n.position.x)*0.1
 		if n.position.distance_to(player.position)<0.7:
 			corn += 1
+			collected.append(n.get_meta("id"))
+			game_menu.call("sound","coin")
 			burst(n.position,Color("#ffdb65"),5)
 			pickups.erase(n)
 			n.queue_free()
@@ -277,6 +336,7 @@ func _physics_process(dt: float) -> void:
 		hp = max_hp
 		burst(chest.position,Color("#ffdf77"),20)
 		chest.queue_free()
+		save_progress()
 	var axis := float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT))-float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT))
 	if absf(axis)<0.1:
 		axis = Input.get_joy_axis(0,JOY_AXIS_LEFT_X)
@@ -316,10 +376,14 @@ func _physics_process(dt: float) -> void:
 		checkpoint = true
 		spawn = Vector3(17,2,0)
 		hp = max_hp
+		game_menu.call("sound","checkpoint")
+		save_progress()
 	if not cellar_checkpoint and absf(player.position.x-47)<1.2 and player.position.y<0:
 		cellar_checkpoint = true
 		spawn = Vector3(47,-2.5,0)
 		hp = max_hp
+		game_menu.call("sound","checkpoint")
+		save_progress()
 	var next_region := "THE OLD FARMYARD" if player.position.x<21 else "THE DERELICT BARN" if player.position.x<39 else "THE FORGOTTEN CELLAR" if player.position.x<58 else "THE IRON ROOSTER" if not boss_done else "HUNTERS' ROAD — COMING SOON"
 	if next_region!=region:
 		region = next_region
@@ -379,6 +443,7 @@ func _physics_process(dt: float) -> void:
 			e.velocity = Vector3.ZERO
 		if e.position.distance_to(player.position)<(1.45 if is_boss else 1.0) and invulnerable <= 0 and state=="strike":
 			hp -= 1
+			game_menu.call("sound","hurt")
 			shake = 0.18
 			invulnerable = 1.2
 			player.velocity = Vector3(-facing*6,5,0)
@@ -388,7 +453,9 @@ func _physics_process(dt: float) -> void:
 		hp = max_hp
 		invulnerable = 1.5
 	if pressed(KEY_R):
-		get_tree().reload_current_scene()
+		player.position = spawn
+		player.velocity = Vector3.ZERO
+		hp = max_hp
 		return
 	camera.position.x = lerpf(camera.position.x,player.position.x+facing*2,dt*5)
 	camera.position.y = lerpf(camera.position.y,player.position.y+1.0,dt*5)
@@ -396,4 +463,4 @@ func _physics_process(dt: float) -> void:
 		camera.position.x += randf_range(-0.08,0.08)
 		camera.position.y += randf_range(-0.08,0.08)
 	boss_label.text = "IRON ROOSTER  "+str(boss.get_meta("hp"))+"/14" if is_instance_valid(boss) and not boss_done and player.position.x>58 else "IRON ROOSTER DEFEATED — ROAD OPEN" if boss_done and player.position.x>58 else ""
-	hud.text = "RESCUE PRINCESS TINA  |  %s  |  Corn: %d  |  Enemies: %d\nA/D or arrows: move   Space: jump   J: peck   K: punch   L: flap   R: restart\n%s" % ["♥".repeat(hp)+"♡".repeat(max_hp-hp),corn,enemies.size(),attack_name if attack_timer>0 else ""]
+	hud.text = "RESCUE PRINCESS TINA  |  %s  |  Corn: %d  |  Enemies: %d\nA/D or arrows: move   Space: jump   J: peck   K: punch   L: flap   R: checkpoint   Esc: pause\n%s" % ["♥".repeat(hp)+"♡".repeat(max_hp-hp),corn,enemies.size(),attack_name if attack_timer>0 else ""]
