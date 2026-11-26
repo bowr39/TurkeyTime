@@ -97,19 +97,8 @@ func _ready() -> void:
 	mesh(self,roof,Vector3(3,5,-8),Color("#583d38"))
 	ball(self,Vector3(17,0.3,-0.8),Vector3(1.2,0.35,0.8),Color("#e8cb71"))
 	player = actor(spawn)
-	turkey = Node3D.new()
+	turkey = preload("res://timmy_model.gd").new()
 	player.add_child(turkey)
-	ball(turkey,Vector3.ZERO,Vector3(1.2,1,0.9),Color("#795039"))
-	ball(turkey,Vector3(0.43,0.55,0),Vector3(0.42,0.65,0.42),Color("#b95c46"))
-	ball(turkey,Vector3(0.63,0.57,0),Vector3(0.4,0.2,0.22),Color("#e8aa38"))
-	ball(turkey,Vector3(0.52,0.69,0.18),Vector3(0.12,0.12,0.12),Color.BLACK)
-	for side in [-1.0,1.0]:
-		wings.append(ball(turkey,Vector3(-0.12,0.05,side*0.4),Vector3(0.8,0.38,0.22),Color("#ad7547")))
-		ball(turkey,Vector3(0.12,-0.52,side*0.23),Vector3(0.42,0.13,0.18),Color("#e2a24b"))
-	ball(turkey,Vector3(0.48,0.26,0.05),Vector3(0.18,0.35,0.18),Color("#a82e31"))
-	for i in range(7):
-		var feather := ball(turkey,Vector3(-0.52,0.3,float(i-3)*0.16),Vector3(0.24,1.2,0.23),Color("#a66a42"))
-		feather.rotation_degrees.x = float(i-3)*18
 	for x in [5.0, 16.0, 25.0]:
 		var e := actor(Vector3(x,1,0))
 		ball(e,Vector3.ZERO,Vector3(0.9,0.9,0.9),Color("#a74636"))
@@ -119,7 +108,7 @@ func _ready() -> void:
 	camera = Camera3D.new()
 	add_child(camera)
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	camera.size = 9
+	camera.size = 6.5
 	camera.position = Vector3(2,3,15)
 	camera.current = true
 	var layer := CanvasLayer.new()
@@ -189,8 +178,7 @@ func _physics_process(dt: float) -> void:
 	if pressed(KEY_L) or Input.is_joy_button_pressed(0,JOY_BUTTON_B):
 		attack("Flap",3.5,0,12)
 	turkey.scale = Vector3(1.15,0.9,1) if attack_timer > 0 else Vector3.ONE
-	for wing in wings:
-		wing.rotation.x = sin(clock*24)*0.7 if attack_timer>0 else 0.1*sin(clock*3)
+	turkey.call("animate",dt,player.velocity.x,player.is_on_floor(),attack_name,attack_timer)
 	if not checkpoint and absf(player.position.x-17)<1.2 and player.position.y<2:
 		checkpoint = true
 		spawn = Vector3(17,2,0)
