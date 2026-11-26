@@ -176,7 +176,7 @@ func expansion() -> void:
 		platform(Vector3(x-3,2,0),Vector3(3,0.4,3))
 		platform(Vector3(x+1,4,0),Vector3(3,0.4,3))
 		platform(Vector3(x+5,6,0),Vector3(3,0.4,3))
-		platform(Vector3(x+8,-2.5,0),Vector3(2,0.4,3))
+		platform(Vector3(x+7,-2.5,0),Vector3(2.4,0.4,3))
 		kernel(Vector3(x+5,6.8,0))
 		kernel(Vector3(x+7,-4.2,0))
 		var mushroom := Node3D.new()
@@ -201,7 +201,7 @@ func expansion() -> void:
 			mesh(self,trunk,Vector3(tree_x,3,-5),Color("#554032"))
 			ball(self,Vector3(tree_x,8,-5),Vector3(6,5,4),Color("#456b50") if i<4 else Color("#795d91") if i<8 else Color("#a37a48"))
 		if i%3==1:
-			lift(Vector3(x+6,-4,0),Vector3(0,8,0),float(i))
+			lift(Vector3(x+7,-4,0),Vector3(0,8,0),float(i))
 		if i%3==2:
 			spikes(Vector3(x+7,-4.7,0))
 	for i in range(2):
@@ -245,23 +245,24 @@ func _ready() -> void:
 	platform(Vector3(0,-0.5,0),Vector3(10,1,5))
 	platform(Vector3(10,-0.5,0),Vector3(6,1,5))
 	platform(Vector3(7,-4.5,0),Vector3(24,1,5))
-	platform(Vector3(2,-2.3,0),Vector3(2,0.4,3))
-	platform(Vector3(13,-2.4,0),Vector3(2,0.4,3))
+	platform(Vector3(6,-2.3,0),Vector3(1.0,0.4,3))
+	platform(Vector3(14,-2.4,0),Vector3(1.0,0.4,3))
 	platform(Vector3(19,-2.0,0),Vector3(3,0.4,3))
-	platform(Vector3(4,2.0,0),Vector3(3,0.4,3))
-	platform(Vector3(8,4.0,0),Vector3(3,0.4,3))
-	platform(Vector3(12,5.8,0),Vector3(4,0.4,3))
-	platform(Vector3(17,5.8,0),Vector3(3,0.4,3))
-	platform(Vector3(31,5.8,0),Vector3(4,0.4,3))
-	platform(Vector3(32,7.7,0),Vector3(3,0.4,3))
-	platform(Vector3(35,9.5,0),Vector3(5,0.4,3))
-	platform(Vector3(36,8.0,0),Vector3(4,0.4,3))
-	platform(Vector3(41,6.0,0),Vector3(4,0.4,3))
+
+	platform(Vector3(3,1.6,0),Vector3(3,0.4,3))
+	platform(Vector3(7,3.3,0),Vector3(3,0.4,3))
+	platform(Vector3(11,5.0,0),Vector3(4,0.4,3))
+	platform(Vector3(17,5.0,0),Vector3(3,0.4,3))
+	platform(Vector3(26,5.0,0),Vector3(4,0.4,3))
+	platform(Vector3(30,7.0,0),Vector3(3,0.4,3))
+	platform(Vector3(34,9.0,0),Vector3(5,0.4,3))
+	platform(Vector3(39,7.2,0),Vector3(4,0.4,3))
+	platform(Vector3(43,5.5,0),Vector3(4,0.4,3))
 	platform(Vector3(46,4.0,0),Vector3(4,0.4,3))
 	platform(Vector3(51,2.0,0),Vector3(4,0.4,3))
 	shrine = Node3D.new()
 	add_child(shrine)
-	shrine.position = Vector3(12,6.7,0)
+	shrine.position = Vector3(11,5.8,0)
 	for side in [-1.0,1.0]:
 		var feather := ball(shrine,Vector3(side*0.3,0,0),Vector3(0.3,0.95,0.2),Color("#a9eaff"))
 		feather.rotation.z = side*-0.6
@@ -271,12 +272,12 @@ func _ready() -> void:
 	hint.text = "WINGS OF FREEDOM"
 	hint.font_size = 40
 	hint.pixel_size = 0.006
-	for p in [Vector3(6,-3.3,0),Vector3(10,-3.3,0),Vector3(15,-3.3,0),Vector3(17,6.5,0),Vector3(31,6.5,0),Vector3(35,10.2,0),Vector3(36,8.7,0),Vector3(46,4.7,0)]:
+	for p in [Vector3(6,-3.3,0),Vector3(10,-3.3,0),Vector3(15,-3.3,0),Vector3(17,5.8,0),Vector3(26,5.8,0),Vector3(34,9.8,0),Vector3(39,8.0,0),Vector3(46,4.7,0)]:
 		kernel(p)
 	platform(Vector3(17,-0.5,0),Vector3(6,1,5))
 	platform(Vector3(29.5,-0.5,0),Vector3(19,1,5))
-	platform(Vector3(8,1.3,0),Vector3(3,0.4,3))
-	platform(Vector3(12,2.7,0),Vector3(3,0.4,3))
+	platform(Vector3(9,1.3,0),Vector3(3,0.4,3))
+	platform(Vector3(13,2.7,0),Vector3(3,0.4,3))
 	platform(Vector3(24,1.3,0),Vector3(3,0.4,3))
 	platform(Vector3(28,2.7,0),Vector3(3,0.4,3))
 	platform(Vector3(32,4.1,0),Vector3(3,0.4,3))
@@ -290,6 +291,9 @@ func _ready() -> void:
 	platform(Vector3(78,-0.5,0),Vector3(10,1,5))
 	platform(Vector3(96,-0.5,0),Vector3(12,1,5))
 	platform(Vector3(112,-0.5,0),Vector3(12,1,5))
+	platform(Vector3(104,-2.0,0),Vector3(1.6,0.35,3))
+	platform(Vector3(114,-3.0,0),Vector3(2,0.4,3))
+	platform(Vector3(116,-1.4,0),Vector3(2,0.4,3))
 	platform(Vector3(87,-5.5,0),Vector3(14,1,5))
 	platform(Vector3(104,-5.5,0),Vector3(20,1,5))
 	platform(Vector3(79,2.0,0),Vector3(3,0.4,3))
@@ -297,9 +301,9 @@ func _ready() -> void:
 	platform(Vector3(97,4.0,0),Vector3(4,0.4,3))
 	platform(Vector3(102,6.0,0),Vector3(4,0.4,3))
 	platform(Vector3(109,4.0,0),Vector3(4,0.4,3))
-	platform(Vector3(91,-3.0,0),Vector3(3,0.4,3))
+	platform(Vector3(89,-3.0,0),Vector3(3,0.4,3))
 	lift(Vector3(87,4,0),Vector3(7,0,0),0)
-	lift(Vector3(105,-4,0),Vector3(0,5.5,0),1.0)
+	lift(Vector3(104,-4,0),Vector3(0,5.5,0),1.0)
 	lift(Vector3(21,1,0),Vector3(0,4,0),0.5)
 	for i in range(5):
 		bridge(Vector3(84+float(i)*1.2,-0.1,0))
@@ -307,7 +311,7 @@ func _ready() -> void:
 	spikes(Vector3(99,-4.7,0))
 	spikes(Vector3(103,0.3,0))
 	shortcut = barrier(Vector3(110,-3.6,0),Vector3(0.4,3,3),Color("#84613d"))
-	for p in [Vector3(79,2.8,0),Vector3(84,4.8,0),Vector3(97,4.8,0),Vector3(102,6.8,0),Vector3(109,4.8,0),Vector3(92,-2.2,0),Vector3(107,-4.2,0)]:
+	for p in [Vector3(79,2.8,0),Vector3(84,4.8,0),Vector3(97,4.8,0),Vector3(102,6.8,0),Vector3(109,4.8,0),Vector3(89,-2.2,0),Vector3(107,-4.2,0)]:
 		kernel(p)
 	for i in range(20):
 		var x := 74.0+float(i)*2.4
@@ -318,7 +322,7 @@ func _ready() -> void:
 		mesh(self,trunk,Vector3(x,2,-4),Color("#514438"))
 		for j in range(3):
 			ball(self,Vector3(x+float(j-1)*0.8,5+float(j%2),-4),Vector3(3.8,3.4,3.2),Color("#536e45") if i%2==0 else Color("#7e8745"))
-	platform(Vector3(33,5.5,0),Vector3(4,0.4,3))
+	platform(Vector3(34,5.5,0),Vector3(5,0.4,3))
 	secret_wall = barrier(Vector3(34.8,6.7,0),Vector3(0.4,2.1,3),Color("#89603d"))
 	chest = Node3D.new()
 	add_child(chest)
@@ -326,8 +330,8 @@ func _ready() -> void:
 	var chest_box := BoxMesh.new()
 	chest_box.size = Vector3(0.7,0.5,0.55)
 	mesh(chest,chest_box,Vector3.ZERO,Color("#b88a39"))
-	gate = barrier(Vector3(72,2,0),Vector3(0.4,4,4),Color("#56636b"))
-	for p in [Vector3(3,0.8,0),Vector3(8,2,0),Vector3(12,3.4,0),Vector3(24,2,0),Vector3(28,3.4,0),Vector3(32,4.8,0),Vector3(44,-2.8,0),Vector3(49,-2.8,0),Vector3(56,-1.5,0)]:
+	gate = barrier(Vector3(72,8,0),Vector3(0.4,16,4),Color("#56636b"))
+	for p in [Vector3(3,0.8,0),Vector3(9,2,0),Vector3(13,3.4,0),Vector3(24,2,0),Vector3(28,3.4,0),Vector3(32,4.8,0),Vector3(44,-2.8,0),Vector3(49,-2.8,0),Vector3(56,-1.5,0)]:
 		kernel(p)
 	add_child(preload("res://farmstead.gd").new())
 	ball(self,Vector3(17,0.3,-0.8),Vector3(1.2,0.35,0.8),Color("#e8cb71"))
@@ -587,7 +591,7 @@ func _physics_process(dt: float) -> void:
 		double_ready = true
 	if jump and double_unlocked and double_ready and not player.is_on_floor() and coyote<=0:
 		double_ready = false
-		player.velocity.y = 11.5
+		player.velocity.y = 12.5
 		burst(player.position,Color("#f4c9ff"),12)
 		jump = false
 	if jump:
@@ -603,8 +607,8 @@ func _physics_process(dt: float) -> void:
 		player.velocity.y = 11.5
 		coyote = 0
 		jump_buffer = 0
-	if player.velocity.y>3 and not Input.is_physical_key_pressed(KEY_SPACE) and not Input.is_joy_button_pressed(0,JOY_BUTTON_A):
-		player.velocity.y = move_toward(player.velocity.y,3,35*dt)
+	if player.velocity.y>5 and not Input.is_physical_key_pressed(KEY_SPACE) and not Input.is_joy_button_pressed(0,JOY_BUTTON_A):
+		player.velocity.y = move_toward(player.velocity.y,5,25*dt)
 	if not dash_unlocked and player.position.distance_to(shrine.position)<1.1:
 		dash_unlocked = true
 		shrine.hide()
@@ -770,11 +774,17 @@ func _physics_process(dt: float) -> void:
 			invulnerable = 1.2
 			player.velocity = Vector3(-facing*6,5,0)
 	if player.position.y < -9 or hp <= 0:
+		dash_time = 0
+		dash_ready = true
+		double_ready = true
 		player.position = spawn
 		player.velocity = Vector3.ZERO
 		hp = max_hp
 		invulnerable = 1.5
 	if pressed(KEY_R):
+		dash_time = 0
+		dash_ready = true
+		double_ready = true
 		player.position = spawn
 		player.velocity = Vector3.ZERO
 		hp = max_hp
