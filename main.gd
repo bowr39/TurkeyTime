@@ -50,6 +50,7 @@ var door_cooldown := 0.0
 var room_id := "1.1"
 var discovered_rooms: Array = ["1.1"]
 var room_map: Label
+var surface_materials: Dictionary = {}
 var facing := 1.0
 var cooldown := 0.0
 var invulnerable := 0.0
@@ -87,6 +88,16 @@ func detail_box(parent: Node3D,p: Vector3,size: Vector3,tint: Color) -> MeshInst
 	m.size = size
 	return mesh(parent,m,p,tint)
 
+func textured_surface(n: MeshInstance3D,tint: Color,timber: bool) -> void:
+	var key := str(tint)+str(timber)
+	if not surface_materials.has(key):
+		var m := ShaderMaterial.new()
+		m.shader = preload("res://terrain_surface.gdshader")
+		m.set_shader_parameter("base_color",tint)
+		m.set_shader_parameter("wood",1.0 if timber else 0.0)
+		surface_materials[key] = m
+	n.material_override = surface_materials[key]
+
 func platform(pos: Vector3, size: Vector3) -> void:
 	var body := StaticBody3D.new()
 	add_child(body)
@@ -99,14 +110,14 @@ func platform(pos: Vector3, size: Vector3) -> void:
 	var timber := size.y<0.7 and pos.y>0.5 and pos.x<74
 	var base := Color("#70503a") if timber else Color("#655443")
 	var top := Color("#ad8050") if timber else Color("#819b4c")
-	detail_box(body,Vector3.ZERO,size,base)
+	textured_surface(detail_box(body,Vector3.ZERO,size,base),base,timber)
 	detail_box(body,Vector3(0,size.y/2-0.045,0),Vector3(size.x,0.09,size.z),top)
 	var count := maxi(1,int(ceil(size.x/0.85)))
 	var step := size.x/float(count)
 	for i in range(count):
 		var x := -size.x/2+step*(float(i)+0.5)
 		var shade := base.lightened(0.08+0.06*sin(float(i)*2.4+pos.x))
-		detail_box(body,Vector3(x,0,size.z/2+0.025),Vector3(step-0.035,size.y*0.78,0.08),shade)
+		textured_surface(detail_box(body,Vector3(x,0,size.z/2+0.025),Vector3(step-0.035,size.y*0.78,0.08),shade),shade,timber)
 		if timber:
 			for side in [-1.0,1.0]:
 				ball(body,Vector3(x+side*step*0.32,0,size.z/2+0.08),Vector3(0.065,0.065,0.04),Color("#343a3c"))
@@ -351,7 +362,8 @@ func _ready() -> void:
 	env.environment.background_color = Color("#b7c6b4")
 	env.environment.fog_enabled = true
 	env.environment.fog_light_color = Color("#a7b8ad")
-	env.environment.fog_density = 0.018
+	env.environment.fog_density = 0.012
+	env.environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.environment.ambient_light_color = Color.WHITE
 	env.environment.ambient_light_energy = 0.55
@@ -362,12 +374,12 @@ func _ready() -> void:
 	sun.rotation_degrees = Vector3(-45, -30, 0)
 	sun.shadow_enabled = true
 	sun.light_color = Color("#ffe0ae")
-	sun.light_energy = 1.3
+	sun.light_energy = 1.55
 	var rim := DirectionalLight3D.new()
 	add_child(rim)
 	rim.rotation_degrees = Vector3(-25,145,0)
 	rim.light_color = Color("#9acbff")
-	rim.light_energy = 0.45
+	rim.light_energy = 0.65
 	platform(Vector3(0,-0.5,0),Vector3(10,1,5))
 	platform(Vector3(10,-0.5,0),Vector3(6,1,5))
 	platform(Vector3(7,-4.5,0),Vector3(24,1,5))
